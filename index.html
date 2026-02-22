@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Roulette Double-Street Simulator</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+        .stat-box { padding: 15px; background: #eef2ff; border-radius: 5px; text-align: center; }
+        .win { color: green; font-weight: bold; }
+        .loss { color: red; }
+        button { padding: 10px 20px; background: #2563eb; color: white; border: none; cursor: pointer; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Roulette Frequency Simulation</h2>
+    <p>Input 200-1000 results (comma separated):</p>
+    <textarea id="resultsInput" placeholder="e.g., 10, 22, 5, 1, 32..."></textarea>
+    
+    <div>
+        <label>Starting Bankroll: </label>
+        <input type="number" id="startBankroll" value="1000">
+        <button onclick="runSimulation()">Run Simulation</button>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-box">Profit: <span id="profit">0</span></div>
+        <div class="stat-box">Peak Bankroll: <span id="peak">0</span></div>
+        <div class="stat-box">Final Status: <span id="status">Ready</span></div>
+    </div>
+
+    <div id="log" style="margin-top:20px; font-size: 12px; height: 200px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px;"></div>
+</div>
+
+<script>
+function getStreet(num) {
+    if (num === 0) return null;
+    return Math.ceil(num / 3);
+}
+
+function runSimulation() {
+    const input = document.getElementById('resultsInput').value;
+    const data = input.split(',').map(Number).filter(n => !isNaN(n));
+    let bankroll = parseFloat(document.getElementById('startBankroll').value);
+    let peak = bankroll;
+    let unitLow = 1;
+    let unitHigh = 1;
+    const log = document.getElementById('log');
+    log.innerHTML = "";
+
+    if (data.length < 36) {
+        alert("Please enter at least 36 results for frequency analysis.");
+        return;
+    }
+
+    // Processing the simulation
+    for (let i = 36; i < data.length; i++) {
+        // 1. Analyze last 36 for High Frequency Street in 1-18 and 19-36
+        const last36 = data.slice(i - 36, i);
+        const freq = {};
+        last36.forEach(n => { const s = getStreet(n); freq[s] = (freq[s] || 0) + 1; });
+
+        // Find hottest street in Low (1-6) and High (7-12)
+        let hotLowStreet = 1; let maxL = -1;
+        let hotHighStreet = 7; let maxH = -1;
+
+        for(let s=1; s<=6; s++) if((freq[s]||0) > maxL) { maxL = freq[s]; hotLowStreet = s; }
+        for(let s=7; s<=12; s++) if((freq[s]||0) > maxH) { maxH = freq[s]; hotHighStreet = s; }
+
+        // Determine Bet Areas (Double Streets)
+        // Example: Hot street 4 (10-11-12) -> Bets 7-12 (DS 3&4) and 10-15 (DS 4&5)
+        const currentNum = data[i];
+        const currentStreet = getStreet(currentNum);
+        
+        let cost = (unitLow * 2) + (unitHigh * 2);
+        if (bankroll < cost) {
+            document.getElementById('status').innerText = "Insufficient Funds - Stopped";
+            break;
+        }
+        bankroll -= cost;
+
+        // Logic for Low Side (1-18)
+        let wonLow = false;
+        if (currentStreet === hotLowStreet) {
+            bankroll += (unitLow * 6) + (unitLow * 6); // Both DS win
+            unitLow = Math.max(1, unitLow - 4);
+            wonLow = true;
+        } else if (currentStreet === hotLowStreet - 1 || currentStreet === hotLowStreet + 1) {
+            bankroll += (unitLow * 6); // One DS wins
+            unitLow = Math.max(1, unitLow - 2);
+            wonLow = true;
+        } else {
+            unitLow += 1;
+        }
+
+        // Logic for High Side (19-36)
+        let wonHigh = false;
+        if (currentStreet === hotHighStreet) {
+            bankroll += (unitHigh * 6) + (unitHigh * 6);
+            unitHigh = Math.max(1, unitHigh - 4);
+            wonHigh = true;
+        } else if (currentStreet === hotHighStreet - 1 || currentStreet === hotHighStreet + 1) {
+            bankroll += (unitHigh * 6);
+            unitHigh = Math.max(1, unitHigh - 2);
+            wonHigh = true;
+        } else {
+            unitHigh += 1;
+        }
+
+        if (bankroll > peak) peak = bankroll;
+        
+        log.innerHTML += `Num: ${currentNum} | LowUnit: ${unitLow} | HighUnit: ${unitHigh} | BR: ${bankroll.toFixed(2)}<br>`;
+    }
+
+    document.getElementById('profit').innerText = (bankroll - document.getElementById('startBankroll').value).toFixed(2);
+    document.getElementById('peak').innerText = peak.toFixed(2);
+    if(bankroll > 0) document.getElementById('status').innerText = "Completed";
+}
+</script>
+
+</body>
+</html>
