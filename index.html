@@ -2,125 +2,158 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Advanced Roulette Double-Street Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roulette Overlap Strategy Tracker</title>
     <style>
-        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
-        .stat-box { padding: 15px; background: #eef2ff; border-radius: 5px; text-align: center; }
-        .win { color: green; font-weight: bold; }
-        .loss { color: red; }
-        button { padding: 10px 20px; background: #2563eb; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        :root { --green: #2e7d32; --red: #c62828; --black: #212121; --blue: #1565c0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 20px; }
+        .grid-container { display: grid; grid-template-columns: 1fr 350px; gap: 20px; max-width: 1200px; margin: auto; }
+        
+        /* Table Styling */
+        .roulette-board { display: grid; grid-template-columns: repeat(12, 1fr); background: var(--green); padding: 10px; border: 4px solid #5d4037; border-radius: 8px; margin-bottom: 20px; }
+        .cell { aspect-ratio: 1; border: 1px solid white; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .cell:hover { background: rgba(255,255,255,0.3); }
+        .zero { grid-row: span 3; background: var(--green); border-left: 4px solid white; }
+        .num-red { background: var(--red); }
+        .num-black { background: var(--black); }
+
+        /* Panel Styling */
+        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .stats { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .bet-info { background: #e3f2fd; padding: 15px; border-radius: 5px; border-left: 5px solid var(--blue); margin-bottom: 15px; }
+        textarea { width: 100%; height: 80px; margin-top: 10px; }
+        button { padding: 10px 15px; cursor: pointer; background: var(--blue); color: white; border: none; border-radius: 4px; font-weight: bold; }
+        .log { height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.9em; background: #f8f9fa; padding: 10px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Roulette Frequency Simulation</h2>
-    <p>Input 200-1000 results (comma separated):</p>
-    <textarea id="resultsInput" placeholder="e.g., 10, 22, 5, 1, 32..."></textarea>
-    
+<div class="grid-container">
     <div>
-        <label>Starting Bankroll: </label>
-        <input type="number" id="startBankroll" value="1000">
-        <button onclick="runSimulation()">Run Simulation</button>
+        <div class="roulette-board" id="board">
+            </div>
+
+        <div class="panel">
+            <h3>Simulation Mode</h3>
+            <p>Paste 200-1000 numbers separated by commas:</p>
+            <textarea id="bulkInput" placeholder="1, 14, 32, 5, 10..."></textarea>
+            <br><br>
+            <button onclick="runBulk()">Run Bulk Simulation</button>
+        </div>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-box">Profit: <span id="profit">0</span></div>
-        <div class="stat-box">Peak Bankroll: <span id="peak">0</span></div>
-        <div class="stat-box">Final Status: <span id="status">Ready</span></div>
-    </div>
+    <div class="panel">
+        <div class="stats">
+            <div>Bank: <b id="bank">1000</b></div>
+            <div>Peak: <b id="peak">1000</b></div>
+        </div>
 
-    <div id="log" style="margin-top:20px; font-size: 12px; height: 200px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px;"></div>
+        <div class="bet-info" id="betAdvice">
+            <strong>Next Bet:</strong> Wait for 36 numbers...
+        </div>
+
+        <h4>Session Log</h4>
+        <div id="log" class="log"></div>
+    </div>
 </div>
 
-<script>
-function getStreet(num) {
-    if (num === 0) return null;
-    return Math.ceil(num / 3);
-}
 
-function runSimulation() {
-    const input = document.getElementById('resultsInput').value;
-    const data = input.split(',').map(Number).filter(n => !isNaN(n));
-    let bankroll = parseFloat(document.getElementById('startBankroll').value);
-    let peak = bankroll;
+
+<script>
+    let bankroll = 1000;
+    let peak = 1000;
+    let history = [];
     let unitLow = 1;
     let unitHigh = 1;
-    const log = document.getElementById('log');
-    log.innerHTML = "";
+    const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-    if (data.length < 36) {
-        alert("Please enter at least 36 results for frequency analysis.");
-        return;
+    // Build Table
+    const board = document.getElementById('board');
+    let zero = document.createElement('div'); zero.className = 'cell zero'; zero.innerText = '0';
+    zero.onclick = () => handleNumber(0);
+    board.appendChild(zero);
+
+    for(let i=1; i<=36; i++) {
+        let n = document.createElement('div');
+        n.className = `cell ${reds.includes(i) ? 'num-red' : 'num-black'}`;
+        n.innerText = i;
+        n.onclick = () => handleNumber(i);
+        board.appendChild(n);
     }
 
-    // Processing the simulation
-    for (let i = 36; i < data.length; i++) {
-        // 1. Analyze last 36 for High Frequency Street in 1-18 and 19-36
-        const last36 = data.slice(i - 36, i);
+    function getStreet(n) { return n === 0 ? null : Math.ceil(n / 3); }
+
+    function analyzeAndBet(newNum) {
+        history.push(newNum);
+        const log = document.getElementById('log');
+        let statusMsg = `Number: ${newNum}`;
+
+        if (history.length < 37) {
+            document.getElementById('betAdvice').innerHTML = `Need ${37 - history.length} more numbers to start logic.`;
+            return;
+        }
+
+        const last36 = history.slice(-37, -1); // Analyze window BEFORE the result
         const freq = {};
-        last36.forEach(n => { const s = getStreet(n); freq[s] = (freq[s] || 0) + 1; });
+        last36.forEach(n => { if(n > 0) { let s = getStreet(n); freq[s] = (freq[s]||0) + 1; }});
 
-        // Find hottest street in Low (1-6) and High (7-12)
-        let hotLowStreet = 1; let maxL = -1;
-        let hotHighStreet = 7; let maxH = -1;
+        // Find Hottest Street in 1-6 and 7-12
+        let hotL = 1, maxL = -1;
+        let hotH = 7, maxH = -1;
+        for(let s=1; s<=6; s++) if((freq[s]||0) >= maxL) { maxL = freq[s]; hotL = s; }
+        for(let s=7; s<=12; s++) if((freq[s]||0) >= maxH) { maxH = freq[s]; hotH = s; }
 
-        for(let s=1; s<=6; s++) if((freq[s]||0) > maxL) { maxL = freq[s]; hotLowStreet = s; }
-        for(let s=7; s<=12; s++) if((freq[s]||0) > maxH) { maxH = freq[s]; hotHighStreet = s; }
-
-        // Determine Bet Areas (Double Streets)
-        // Example: Hot street 4 (10-11-12) -> Bets 7-12 (DS 3&4) and 10-15 (DS 4&5)
-        const currentNum = data[i];
-        const currentStreet = getStreet(currentNum);
+        // Logic for result
+        const s = getStreet(newNum);
+        let currentCost = (unitLow * 2) + (unitHigh * 2);
         
-        let cost = (unitLow * 2) + (unitHigh * 2);
-        if (bankroll < cost) {
-            document.getElementById('status').innerText = "Insufficient Funds - Stopped";
-            break;
+        if (bankroll < currentCost) {
+            log.innerHTML = "!!! BANKROLL INSUFFICIENT - STOP !!!<br>" + log.innerHTML;
+            return;
         }
-        bankroll -= cost;
+        bankroll -= currentCost;
 
-        // Logic for Low Side (1-18)
-        let wonLow = false;
-        if (currentStreet === hotLowStreet) {
-            bankroll += (unitLow * 6) + (unitLow * 6); // Both DS win
-            unitLow = Math.max(1, unitLow - 4);
-            wonLow = true;
-        } else if (currentStreet === hotLowStreet - 1 || currentStreet === hotLowStreet + 1) {
-            bankroll += (unitLow * 6); // One DS wins
-            unitLow = Math.max(1, unitLow - 2);
-            wonLow = true;
-        } else {
-            unitLow += 1;
-        }
+        // Process LOW Side
+        if (s === hotL) { 
+            bankroll += (unitLow * 12); unitLow = Math.max(1, unitLow - 4); 
+        } else if (s === hotL - 1 || s === hotL + 1) { 
+            bankroll += (unitLow * 6); unitLow = Math.max(1, unitLow - 2); 
+        } else { unitLow += 1; }
 
-        // Logic for High Side (19-36)
-        let wonHigh = false;
-        if (currentStreet === hotHighStreet) {
-            bankroll += (unitHigh * 6) + (unitHigh * 6);
-            unitHigh = Math.max(1, unitHigh - 4);
-            wonHigh = true;
-        } else if (currentStreet === hotHighStreet - 1 || currentStreet === hotHighStreet + 1) {
-            bankroll += (unitHigh * 6);
-            unitHigh = Math.max(1, unitHigh - 2);
-            wonHigh = true;
-        } else {
-            unitHigh += 1;
-        }
+        // Process HIGH Side
+        if (s === hotH) { 
+            bankroll += (unitHigh * 12); unitHigh = Math.max(1, unitHigh - 4); 
+        } else if (s === hotH - 1 || s === hotH + 1) { 
+            bankroll += (unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); 
+        } else { unitHigh += 1; }
+
+        // Display Next Bet
+        let lowDS_A = `${(hotL-1)*3+1}-${hotL*3}`;
+        let lowDS_B = `${hotL*3+1}-${(hotL+1)*3}`; 
+        // Simple logic: if hotL is 1, take DS 1-2. If hotL is 6, take DS 5-6. Else overlap.
+        
+        document.getElementById('betAdvice').innerHTML = `
+            <strong>Betting Low:</strong> Overlap Street ${hotL} (Units: ${unitLow})<br>
+            <strong>Betting High:</strong> Overlap Street ${hotH} (Units: ${unitHigh})
+        `;
 
         if (bankroll > peak) peak = bankroll;
-        
-        log.innerHTML += `Num: ${currentNum} | LowUnit: ${unitLow} | HighUnit: ${unitHigh} | BR: ${bankroll.toFixed(2)}<br>`;
+        updateUI();
+        log.innerHTML = `Num: ${newNum} | L: ${unitLow} | H: ${unitHigh} | BR: ${bankroll.toFixed(0)}<br>` + log.innerHTML;
     }
 
-    document.getElementById('profit').innerText = (bankroll - document.getElementById('startBankroll').value).toFixed(2);
-    document.getElementById('peak').innerText = peak.toFixed(2);
-    if(bankroll > 0) document.getElementById('status').innerText = "Completed";
-}
-</script>
+    function handleNumber(n) { analyzeAndBet(n); }
 
+    function runBulk() {
+        const val = document.getElementById('bulkInput').value;
+        const nums = val.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+        nums.forEach(n => analyzeAndBet(n));
+    }
+
+    function updateUI() {
+        document.getElementById('bank').innerText = bankroll.toFixed(0);
+        document.getElementById('peak').innerText = peak.toFixed(0);
+    }
+</script>
 </body>
 </html>
