@@ -2,95 +2,81 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Roulette Double-Street Overlap Strategy</title>
+    <title>Roulette Street Power-Zone Tracker</title>
     <style>
-        :root { --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; --gold: #ffc107; --ui-bg: #2c3e50; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #121212; color: white; margin: 0; padding: 20px; }
-        
+        :root { --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; --gold: #ffc107; --blue: #0d47a1; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; margin: 0; padding: 20px; }
         .container { max-width: 1100px; margin: auto; }
         
-        /* User Inputs Panel */
-        .setup-panel { background: var(--ui-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; border-bottom: 3px solid var(--gold); }
+        /* Dashboard */
+        .header { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; background: #2c3e50; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-bottom: 4px solid var(--gold); }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
         input, select, button { padding: 10px; border-radius: 4px; border: none; font-weight: bold; }
-        label { font-size: 0.85rem; color: #bdc3c7; text-transform: uppercase; }
-
-        /* Dashboard Stats */
-        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
         .stat-card { background: #34495e; padding: 15px; border-radius: 8px; text-align: center; }
-        .stat-card div { font-size: 1.5rem; font-weight: bold; color: var(--gold); }
+        .stat-card div { font-size: 1.5rem; color: var(--gold); }
 
-        /* The Table */
-        .table-area { background: var(--green); padding: 20px; border-radius: 12px; border: 4px solid #3e2723; margin-bottom: 20px; overflow-x: auto; }
-        .roulette-grid { display: grid; grid-template-columns: 50px repeat(12, 1fr); gap: 3px; min-width: 750px; }
-        .cell { height: 45px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); transition: 0.2s; }
+        /* Roulette Table */
+        .table-area { background: var(--green); padding: 20px; border-radius: 12px; border: 4px solid #3e2723; margin-bottom: 20px; position: relative; }
+        .roulette-grid { display: grid; grid-template-columns: 50px repeat(12, 1fr); gap: 3px; }
+        .cell { height: 45px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); }
         .zero { grid-row: span 3; background: var(--green); border: 2px solid white; height: auto; }
         .r { background: var(--red); }
         .b { background: var(--black); }
+        .bet-active { border: 3px solid var(--gold) !important; box-shadow: inset 0 0 10px var(--gold); }
 
-        /* Action Area */
-        .work-area { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .panel { background: var(--ui-bg); padding: 20px; border-radius: 8px; min-height: 300px; }
-        .bet-instruction { background: #1565c0; padding: 15px; border-radius: 6px; border-left: 6px solid var(--gold); margin-bottom: 15px; }
-        .bet-instruction b { color: var(--gold); font-size: 1.1em; }
-        
-        textarea { width: 100%; height: 80px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; box-sizing: border-box; }
-        .log { height: 180px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; font-size: 0.85rem; border-radius: 4px; margin-top: 10px; }
+        /* UI Panels */
+        .main-grid { display: grid; grid-template-columns: 1fr 350px; gap: 20px; }
+        .panel { background: #2c3e50; padding: 20px; border-radius: 8px; }
+        .instruction-box { background: var(--blue); padding: 15px; border-radius: 6px; border-left: 6px solid var(--gold); margin-bottom: 15px; }
+        textarea { width: 100%; height: 100px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; font-family: monospace; }
+        .log { height: 200px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-size: 0.85rem; border-radius: 4px; margin-top: 10px; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="setup-panel">
-        <div class="input-group">
-            <label>Starting Bankroll</label>
-            <input type="number" id="startBank" value="1000">
-        </div>
-        <div class="input-group">
-            <label>Base Unit Size</label>
-            <input type="number" id="baseUnit" value="1">
-        </div>
-        <div class="input-group">
-            <label>Input Mode</label>
-            <select id="modeSelect" onchange="toggleMode()">
-                <option value="manual">Manual (Table)</option>
-                <option value="sim">Simulation (Paste)</option>
+    <div class="header">
+        <div class="input-group"><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
+        <div class="input-group"><label>Base Unit</label><input type="number" id="inUnit" value="1"></div>
+        <div class="input-group"><label>Mode</label>
+            <select id="mode" onchange="switchMode()">
+                <option value="manual">Manual</option>
+                <option value="sim">Simulation</option>
             </select>
         </div>
-        <button onclick="initSession()">Start / Reset Session</button>
+        <button onclick="startSession()" style="background: var(--gold);">START SESSION</button>
     </div>
 
-    <div class="dashboard">
-        <div class="stat-card"><small>Balance</small><div id="curBank">0</div></div>
-        <div class="stat-card"><small>Peak</small><div id="peakBank">0</div></div>
-        <div class="stat-card"><small>Low Multiplier</small><div id="mLow">1</div></div>
-        <div class="stat-card"><small>High Multiplier</small><div id="mHigh">1</div></div>
+    <div class="stats">
+        <div class="stat-card">Balance<div id="dispBank">0</div></div>
+        <div class="stat-card">Peak<div id="dispPeak">0</div></div>
+        <div class="stat-card">L-Multi<div id="dispML">1</div></div>
+        <div class="stat-card">H-Multi<div id="dispMH">1</div></div>
     </div>
 
-    <div id="manualPanel" class="table-area">
+    <div id="manualUI" class="table-area">
         <div class="roulette-grid" id="grid">
-            <div class="cell zero" onclick="addNumber(0)">0</div>
+            <div class="cell zero" onclick="press(0)">0</div>
         </div>
     </div>
 
-    <div id="simPanel" class="panel hidden" style="margin-bottom:20px;">
-        <label>Paste numbers (comma, space, or enter):</label>
-        <textarea id="bulkData" placeholder="2, 14, 35, 1, 19..."></textarea>
-        <button onclick="runBulkSim()" style="width:100%; margin-top:10px;">Run Simulation</button>
+    <div id="simUI" class="panel hidden" style="margin-bottom: 20px;">
+        <textarea id="bulk" placeholder="Paste: 1, 14, 22 35 10..."></textarea>
+        <button onclick="runSim()" style="width:100%; margin-top:10px;">Run Bulk Simulation</button>
     </div>
 
-    <div class="work-area">
+    <div class="main-grid">
         <div class="panel">
-            <h3>Current Bet Instructions</h3>
-            <div id="instruction" class="bet-instruction">
-                Enter 36 results to start frequency strategy.
-            </div>
+            <h3>Betting Dashboard</h3>
+            <div id="advice" class="instruction-box">Waiting for 36 results...</div>
             <div id="log" class="log"></div>
         </div>
         <div class="panel">
-            <h3>Street Frequency (Last 36)</h3>
-            <div id="freqDisplay" class="log"></div>
+            <h3>Street Analysis</h3>
+            <div id="freqBox" class="log"></div>
         </div>
     </div>
 </div>
@@ -98,116 +84,101 @@
 
 
 <script>
-    let bankroll, peak, history = [], unitL = 1, unitH = 1, base;
+    let bank, peak, history = [], mLow = 1, mHigh = 1, base, active = false;
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-    // Generate Table
+    // Build Table
     const grid = document.getElementById('grid');
     for (let i = 1; i <= 36; i++) {
-        let col = Math.ceil(i / 3);
-        let row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
+        let col = Math.ceil(i / 3), row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
         let d = document.createElement('div');
         d.className = `cell ${reds.includes(i) ? 'r' : 'b'}`;
-        d.innerText = i;
-        d.style.gridColumn = col + 1;
-        d.style.gridRow = row;
-        d.onclick = () => addNumber(i);
+        d.id = `cell-${i}`; d.innerText = i;
+        d.style.gridColumn = col + 1; d.style.gridRow = row;
+        d.onclick = () => press(i);
         grid.appendChild(d);
     }
 
-    function initSession() {
-        bankroll = parseFloat(document.getElementById('startBank').value);
-        base = parseFloat(document.getElementById('baseUnit').value);
-        peak = bankroll;
-        history = []; unitL = 1; unitH = 1;
-        document.getElementById('log').innerHTML = "Session Initialized...";
+    function switchMode() {
+        const m = document.getElementById('mode').value;
+        document.getElementById('manualUI').classList.toggle('hidden', m !== 'manual');
+        document.getElementById('simUI').classList.toggle('hidden', m !== 'sim');
+    }
+
+    function startSession() {
+        bank = parseFloat(document.getElementById('inBank').value);
+        base = parseFloat(document.getElementById('inUnit').value);
+        peak = bank; history = []; mLow = 1; mHigh = 1; active = true;
         updateUI(null);
     }
 
-    function toggleMode() {
-        const mode = document.getElementById('modeSelect').value;
-        document.getElementById('manualPanel').classList.toggle('hidden', mode !== 'manual');
-        document.getElementById('simPanel').classList.toggle('hidden', mode !== 'sim');
-    }
-
-    function getDoubleStreets(streetIndex) {
-        // Logic: Street 4 is 10-12. DS A is 7-12, DS B is 10-15.
-        // We handle boundaries for streets 1 and 12
-        let sA = Math.max(1, streetIndex - 1);
-        let sB = streetIndex;
-        if(streetIndex === 1) { sA = 1; sB = 2; }
-        if(streetIndex === 12) { sA = 10; sB = 11; }
-        
-        let rangeA = `${(sA*3)-2}-${(sA*3)+3}`;
-        let rangeB = `${(sB*3)-2}-${(sB*3)+3}`;
-        return [rangeA, rangeB];
-    }
-
-    function addNumber(n) {
-        if (bankroll === undefined) { alert("Please click Start Session first!"); return; }
-        
-        if (history.length >= 36) {
-            calculateOutcome(n);
-        }
-        
+    function press(n) {
+        if(!active) return alert("Start session first.");
+        if(history.length >= 36) executeLogic(n);
         history.push(n);
         updateUI(n);
     }
 
-    function calculateOutcome(n) {
+    function executeLogic(winNum) {
         const last36 = history.slice(-36);
         const freq = {};
-        last36.forEach(num => { if(num>0){ let s=Math.ceil(num/3); freq[s]=(freq[s]||0)+1; }});
+        last36.forEach(x => { if(x>0){ let s = Math.ceil(x/3); freq[s] = (freq[s]||0)+1; }});
 
-        let hotL = 1, maxL = -1, hotH = 7, maxH = -1;
-        for(let s=1; s<=6; s++) if((freq[s]||0) >= maxL) { maxL=freq[s]; hotL=s; }
-        for(let s=7; s<=12; s++) if((freq[s]||0) >= maxH) { maxH=freq[s]; hotH=s; }
-
-        const cost = (unitL * 2 * base) + (unitH * 2 * base);
-        if (bankroll < cost) {
-            document.getElementById('log').innerHTML = "<div style='color:red'>STOP: Bankroll Insufficient</div>" + document.getElementById('log').innerHTML;
-            return;
-        }
-        bankroll -= cost;
-
-        const sWin = Math.ceil(n/3);
+        // Get Top Streets excluding 1 and 12
+        const sorted = Object.entries(freq).sort((a,b) => b[1] - a[1]);
         
-        // Low Logic
-        if (sWin === hotL) { bankroll += (unitL * base * 12); unitL = Math.max(1, unitL - 4); }
-        else if (sWin === hotL-1 || sWin === hotL+1) { bankroll += (unitL * base * 6); unitL = Math.max(1, unitL - 2); }
-        else { unitL += 1; }
+        let hotL = sorted.find(x => x[0] > 1 && x[0] < 7)?.[0] || 4;
+        let hotH = sorted.find(x => x[0] > 7 && x[0] < 12)?.[0] || 10;
 
-        // High Logic
-        if (sWin === hotH) { bankroll += (unitH * base * 12); unitH = Math.max(1, unitH - 4); }
-        else if (sWin === hotH-1 || sWin === hotH+1) { bankroll += (unitH * base * 6); unitH = Math.max(1, unitH - 2); }
-        else { unitH += 1; }
+        // Current bet cost based on PREVIOUS state
+        const totalCost = (mLow * 2 * base) + (mHigh * 2 * base);
+        if(bank < totalCost) { active = false; return alert("Simulation Stopped: Insufficient Bankroll"); }
+        bank -= totalCost;
 
-        if (bankroll > peak) peak = bankroll;
-
-        // Prepare Instructions for NEXT round
-        const dsL = getDoubleStreets(hotL);
-        const dsH = getDoubleStreets(hotH);
+        const sWin = Math.ceil(winNum/3);
         
-        document.getElementById('instruction').innerHTML = `
-            <b>Low Bet:</b> DS ${dsL[0]} & DS ${dsL[1]} (Value: ${unitL * base})<br>
-            <b>High Bet:</b> DS ${dsH[0]} & DS ${dsH[1]} (Value: ${unitH * base})
+        // Low Result
+        if(sWin == hotL) { bank += (mLow * base * 12); mLow = Math.max(1, mLow - 4); }
+        else if(sWin == hotL-1 || sWin == (parseInt(hotL)+1)) { bank += (mLow * base * 6); mLow = Math.max(1, mLow - 2); }
+        else { mLow++; }
+
+        // High Result
+        if(sWin == hotH) { bank += (mHigh * base * 12); mHigh = Math.max(1, mHigh - 4); }
+        else if(sWin == hotH-1 || sWin == (parseInt(hotH)+1)) { bank += (mHigh * base * 6); mHigh = Math.max(1, mHigh - 2); }
+        else { mHigh++; }
+
+        if(bank > peak) peak = bank;
+
+        // Visual for Table
+        document.querySelectorAll('.cell').forEach(c => c.classList.remove('bet-active'));
+        highlight(hotL, hotH);
+    }
+
+    function highlight(l, h) {
+        const rLow = [(l-1)*3-2, (l*3)+3]; // Range for double streets around L
+        const rHigh = [(h-1)*3-2, (h*3)+3];
+        
+        for(let i=Math.max(1, rLow[0]); i<=Math.min(18, rLow[1]); i++) document.getElementById(`cell-${i}`).classList.add('bet-active');
+        for(let i=Math.max(19, rHigh[0]); i<=Math.min(36, rHigh[1]); i++) document.getElementById(`cell-${i}`).classList.add('bet-active');
+
+        document.getElementById('advice').innerHTML = `
+            <b>BET NOW:</b><br>
+            Low Zone (Street ${l}): DS ${(l-1)*3+1}-${l*3+3} | Units: ${mLow * base}<br>
+            High Zone (Street ${h}): DS ${(h-1)*3+1}-${h*3+3} | Units: ${mHigh * base}
         `;
     }
 
-    function runBulkSim() {
-        const raw = document.getElementById('bulkData').value;
-        const nums = raw.split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n>=0 && n<=36);
-        nums.forEach(n => addNumber(n));
+    function runSim() {
+        const data = document.getElementById('bulk').value.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+        data.forEach(n => press(n));
     }
 
-    function updateUI(last) {
-        document.getElementById('curBank').innerText = bankroll.toFixed(0);
-        document.getElementById('peakBank').innerText = peak.toFixed(0);
-        document.getElementById('mLow').innerText = unitL;
-        document.getElementById('mHigh').innerText = unitH;
-        if(last !== null) {
-            document.getElementById('log').innerHTML = `<div>Num: ${last} | Bal: ${bankroll.toFixed(0)}</div>` + document.getElementById('log').innerHTML;
-        }
+    function updateUI(n) {
+        document.getElementById('dispBank').innerText = bank.toFixed(0);
+        document.getElementById('dispPeak').innerText = peak.toFixed(0);
+        document.getElementById('dispML').innerText = mLow;
+        document.getElementById('dispMH').innerText = mHigh;
+        if(n !== null) document.getElementById('log').innerHTML = `<div>Num: ${n} | Bank: ${bank.toFixed(0)}</div>` + document.getElementById('log').innerHTML;
     }
 </script>
 </body>
