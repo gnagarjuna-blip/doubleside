@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Roulette Sector Hot/Cold Tracker</title>
+    <title>Roulette Sector Progression Tracker</title>
     <style>
         :root { --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; --gold: #ffc107; --blue: #0d47a1; --hot: #ff5252; --cold: #448aff; }
         body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; margin: 0; padding: 20px; }
@@ -19,7 +19,6 @@
         .b { background: var(--black); }
         .bet-hot { border: 3px solid var(--hot) !important; background: rgba(255, 82, 82, 0.4); }
         .bet-cold { border: 3px solid var(--cold) !important; background: rgba(68, 138, 255, 0.4); }
-        .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
         .panel { background: #2c3e50; padding: 20px; border-radius: 8px; }
         textarea { width: 100%; height: 100px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; font-family: monospace; box-sizing: border-box; }
         .log { height: 300px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #444; }
@@ -31,44 +30,44 @@
 
 <div class="container">
     <div class="header">
-        <div style="display:flex; flex-direction:column;"><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
-        <div style="display:flex; flex-direction:column;"><label>Base Unit</label><input type="number" id="inUnit" value="10"></div>
+        <div style="display:flex; flex-direction:column;"><label>Initial Bankroll</label><input type="number" id="inBank" value="1000"></div>
+        <div style="display:flex; flex-direction:column;"><label>Base Unit Size</label><input type="number" id="inUnit" value="5"></div>
         <div style="display:flex; flex-direction:column;"><label>Mode</label>
             <select id="mode" onchange="toggleMode()">
-                <option value="sim">Simulation (Paste Data)</option>
+                <option value="sim">Simulation (Bulk Paste)</option>
                 <option value="manual">Manual Entry</option>
             </select>
         </div>
-        <button onclick="startSession()" style="background: var(--gold); color: black;">INITIALIZE SESSION</button>
+        <button onclick="startSession()" style="background: var(--gold); color: black;">START NEW SESSION</button>
     </div>
 
     <div class="stats">
-        <div class="stat-card">Current Bankroll<div id="dispBank">1000</div></div>
-        <div class="stat-card">Profit/Loss<div id="dispProfit">0</div></div>
-        <div class="stat-card">Peak Balance<div id="dispPeak">1000</div></div>
-        <div class="stat-card">Total Spins<div id="dispSpins">0</div></div>
+        <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
+        <div class="stat-card">Total Profit<div id="dispProfit">0</div></div>
+        <div class="stat-card">Current Units (L/H)<div id="dispUnits">1 / 1</div></div>
+        <div class="stat-card">Peak Bank<div id="dispPeak">0</div></div>
     </div>
 
     <div id="simUI" class="panel" style="margin-bottom: 20px;">
-        <label>Paste 200-1000 Results (Space or Comma separated):</label>
-        <textarea id="bulk" placeholder="32, 15, 1, 0, 19, 24..."></textarea>
-        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color: white;">RUN SIMULATION</button>
+        <label>Paste Data (200-1000 results):</label>
+        <textarea id="bulk" placeholder="Enter numbers here..."></textarea>
+        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color: white;">PROCESS SIMULATION</button>
     </div>
 
     <div id="manualUI" class="table-area hidden">
         <div class="roulette-grid" id="grid"><div class="cell zero" onclick="press(0)">0</div></div>
     </div>
 
-    <div class="main-grid">
+    <div class="main-grid" id="dashboard" style="display:none;">
         <div class="panel">
-            <h3>Betting Engine (Last 18 Analysis)</h3>
+            <h3>Prediction Dashboard</h3>
             <div id="advice" style="background:var(--blue); padding:15px; border-radius:6px; min-height:60px;">
-                Awaiting 18 results to begin strategy...
+                Collect 18 results to begin analysis...
             </div>
             <div id="log" class="log" style="margin-top:15px;"></div>
         </div>
         <div class="panel">
-            <h3>Sequence History</h3>
+            <h3>Spin History</h3>
             <div id="histList" class="log"></div>
         </div>
     </div>
@@ -76,12 +75,11 @@
 
 <script>
     let bank, startBank, peak, history = [], base, active = false;
+    let unitLow = 1, unitHigh = 1;
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
-    
-    // DS Definitions: 1=[1-6], 2=[7-12], 3=[13-18], 4=[19-24], 5=[25-30], 6=[31-36]
     const dsMap = { 1: [1,6], 2: [7,12], 3: [13,18], 4: [19,24], 5: [25,30], 6: [31,36] };
 
-    // Build UI Grid
+    // Build Table
     const grid = document.getElementById('grid');
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3), row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
@@ -103,19 +101,19 @@
         startBank = parseFloat(document.getElementById('inBank').value);
         bank = startBank;
         base = parseFloat(document.getElementById('inUnit').value);
-        peak = bank; history = []; active = true;
-        document.getElementById('log').innerHTML = "Session Initialized.";
+        peak = bank; history = []; unitLow = 1; unitHigh = 1; active = true;
+        document.getElementById('dashboard').style.display = 'grid';
+        document.getElementById('histList').innerHTML = "";
         updateUI(null);
     }
 
     function press(n) {
         if(!active) return;
-        
         let prediction = null;
-        // If we have at least 18 results, we bet on the NEXT spin
+
         if(history.length >= 18) {
             prediction = getPredictions();
-            processBet(n, prediction);
+            calculateWinLoss(n, prediction);
         }
         
         history.push(n);
@@ -125,81 +123,80 @@
     function getPredictions() {
         const last18 = history.slice(-18);
         const dsFreq = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
-        
-        last18.forEach(num => {
-            if(num > 0) {
-                let ds = Math.ceil(num / 6);
-                dsFreq[ds]++;
-            }
-        });
+        last18.forEach(num => { if(num > 0) dsFreq[Math.ceil(num / 6)]++; });
 
-        // Sector 1-18 (DS 1, 2, 3)
-        const lowDS = [1, 2, 3].sort((a,b) => dsFreq[b] - dsFreq[a]);
-        // Sector 19-36 (DS 4, 5, 6)
-        const highDS = [4, 5, 6].sort((a,b) => dsFreq[b] - dsFreq[a]);
+        const lowSet = [1, 2, 3].sort((a,b) => dsFreq[b] - dsFreq[a]);
+        const highSet = [4, 5, 6].sort((a,b) => dsFreq[b] - dsFreq[a]);
 
         return {
-            lowHot: lowDS[0],
-            lowCold: lowDS[2],
-            highHot: highDS[0],
-            highCold: highDS[2]
+            lowHot: lowSet[0], lowCold: lowSet[2],
+            highHot: highSet[0], highCold: highSet[2]
         };
     }
 
-    function processBet(n, p) {
-        const betDS = [p.lowHot, p.lowCold, p.highHot, p.highCold];
-        const totalBet = base * 4;
-        
-        if (bank < totalBet) {
+    function calculateWinLoss(n, p) {
+        // Costs: 2 Double Streets for Low * unitLow, 2 for High * unitHigh
+        const costLow = (base * unitLow) * 2;
+        const costHigh = (base * unitHigh) * 2;
+        const totalCost = costLow + costHigh;
+
+        if(bank < totalCost) {
             active = false;
-            log("CRITICAL: Bankroll depleted. Simulation stopped.");
+            document.getElementById('log').innerHTML = "<p style='color:red'>BANKRUPT: Units too high for remaining balance.</p>" + document.getElementById('log').innerHTML;
             return;
         }
 
-        bank -= totalBet;
-        let win = 0;
+        bank -= totalCost;
         let landingDS = Math.ceil(n / 6);
+        let winAmount = 0;
 
-        if(n > 0 && betDS.includes(landingDS)) {
-            win = base * 6; // Double Street payout is 5 to 1 (Total 6 units returned)
-            bank += win;
+        // Check Low Side (1-18)
+        if (n > 0 && n <= 18 && (landingDS === p.lowHot || landingDS === p.lowCold)) {
+            winAmount += (base * unitLow) * 6;
+            unitLow = Math.max(1, unitLow - 1); // Decrease 1 on win
+        } else if (n === 0 || n > 18 || (landingDS !== p.lowHot && landingDS !== p.lowCold)) {
+            unitLow++; // Increase 1 on loss
         }
-        
+
+        // Check High Side (19-36)
+        if (n >= 19 && (landingDS === p.highHot || landingDS === p.highCold)) {
+            winAmount += (base * unitHigh) * 6;
+            unitHigh = Math.max(1, unitHigh - 1); // Decrease 1 on win
+        } else {
+            unitHigh++; // Increase 1 on loss (includes 0 or Low number)
+        }
+
+        bank += winAmount;
         if(bank > peak) peak = bank;
     }
 
     function runSim() {
         startSession();
-        const data = document.getElementById('bulk').value.split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 36);
-        if(data.length === 0) return alert("Please paste valid numbers.");
-        
-        data.forEach(n => {
-            if(active) press(n);
-        });
+        const data = document.getElementById('bulk').value.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+        data.forEach(n => { if(active) press(n); });
     }
 
     function updateUI(n, p) {
         document.getElementById('dispBank').innerText = bank.toFixed(0);
         document.getElementById('dispProfit').innerText = (bank - startBank).toFixed(0);
+        document.getElementById('dispUnits').innerText = `${unitLow} / ${unitHigh}`;
         document.getElementById('dispPeak').innerText = peak.toFixed(0);
-        document.getElementById('dispSpins').innerText = history.length;
 
         if(p) {
             document.querySelectorAll('.cell').forEach(c => c.classList.remove('bet-hot', 'bet-cold'));
-            highlightDS(p.lowHot, 'bet-hot');
-            highlightDS(p.highHot, 'bet-hot');
-            highlightDS(p.lowCold, 'bet-cold');
-            highlightDS(p.highCold, 'bet-cold');
-
+            [p.lowHot, p.highHot].forEach(ds => highlightDS(ds, 'bet-hot'));
+            [p.lowCold, p.highCold].forEach(ds => highlightDS(ds, 'bet-cold'));
+            
             document.getElementById('advice').innerHTML = `
-                <b>Targeting 4 Double Streets:</b><br>
-                <span style="color:var(--hot)">HOT:</span> DS ${p.lowHot} & ${p.highHot} | 
-                <span style="color:var(--cold)">COLD:</span> DS ${p.lowCold} & ${p.highCold}
+                <b>Active Progression:</b><br>
+                Low Units: ${unitLow}u | High Units: ${unitHigh}u<br>
+                <small>Next Bet: DS ${p.lowHot}, ${p.lowCold} (L) & DS ${p.highHot}, ${p.highCold} (H)</small>
             `;
         }
 
         if(n !== null) {
-            let logMsg = `Spin ${history.length}: Result ${n} | Bank: ${bank.toFixed(0)}`;
+            let resClass = reds.includes(n) ? 'color:red' : (n===0 ? 'color:green' : 'color:white');
+            let logMsg = `Spin ${history.length}: <span style="${resClass}">${n}</span> | Bank: ${bank.toFixed(0)}`;
             document.getElementById('histList').innerHTML = `<div>${logMsg}</div>` + document.getElementById('histList').innerHTML;
         }
     }
@@ -211,11 +208,6 @@
             if(el) el.classList.add(className);
         }
     }
-
-    function log(m) {
-        document.getElementById('log').innerHTML = `<div>${m}</div>` + document.getElementById('log').innerHTML;
-    }
 </script>
-
 </body>
 </html>
