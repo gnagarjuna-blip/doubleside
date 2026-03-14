@@ -2,90 +2,133 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Roulette Sector Progression Tracker v3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Roulette Tracker v3.1</title>
     <style>
-        :root { --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; --gold: #ffc107; --blue: #0d47a1; --hot: #ff5252; --cold: #448aff; }
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; }
-        .header { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; background: #2c3e50; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-bottom: 4px solid var(--gold); }
-        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-        .stat-card { background: #34495e; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #455a64; }
-        .stat-card div { font-size: 1.2rem; color: var(--gold); font-weight: bold; margin-top: 5px; }
-        
-        /* Table Styling */
-        .table-area { background: var(--green); padding: 20px; border-radius: 12px; border: 4px solid #3e2723; margin-bottom: 20px; position: relative; }
-        .roulette-grid { display: grid; grid-template-columns: 50px repeat(12, 1fr); gap: 3px; position: relative; }
-        .cell { height: 45px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); font-size: 1rem; transition: all 0.1s; position: relative; z-index: 1; }
-        
-        /* Chip Styling */
-        .chip {
-            position: absolute;
-            width: 32px;
-            height: 32px;
-            background: white;
-            color: black;
-            border-radius: 50%;
-            border: 2px dashed #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: bold;
-            z-index: 10;
-            pointer-events: none;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-            transform: translate(-50%, -50%);
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        :root { 
+            --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
+            --gold: #ffc107; --blue: #2196f3; --cell-h: 50px;
         }
-        .chip-low { background: var(--gold); border-color: #b8860b; }
-        .chip-high { background: #fff; border-color: #999; }
+        
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: #121212; color: white; margin: 0; padding: 10px; 
+            overscroll-behavior: contain;
+        }
 
-        @keyframes popIn { from { transform: translate(-50%, -50%) scale(0); } to { transform: translate(-50%, -50%) scale(1); } }
+        .container { max-width: 1000px; margin: auto; }
 
-        .zero { grid-row: span 3; background: var(--green); border: 2px solid white; height: auto; }
+        /* Responsive Header */
+        .header { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; 
+            background: #2c3e50; padding: 15px; border-radius: 8px; 
+            margin-bottom: 15px; border-bottom: 4px solid var(--gold);
+        }
+        .header div { display: flex; flex-direction: column; font-size: 0.8rem; }
+        .header input, .header select { 
+            padding: 8px; border-radius: 4px; border: none; margin-top: 4px; 
+            background: #ecf0f1; font-weight: bold;
+        }
+        .btn-start { 
+            grid-column: span 2; padding: 12px; background: var(--gold); 
+            border: none; border-radius: 4px; font-weight: bold; font-size: 1rem;
+        }
+
+        /* Stats Grid */
+        .stats { 
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; 
+            margin-bottom: 15px; 
+        }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        
+        .stat-card { 
+            background: #34495e; padding: 10px; border-radius: 6px; 
+            text-align: center; font-size: 0.8rem; border: 1px solid #455a64; 
+        }
+        .stat-card div { font-size: 1.1rem; color: var(--gold); font-weight: bold; }
+
+        /* THE BOARD - Mobile Optimized */
+        .table-outer {
+            background: var(--green); padding: 15px 10px; border-radius: 12px;
+            border: 4px solid #3e2723; margin-bottom: 15px;
+            overflow-x: auto; /* Allow horizontal scroll on very small phones */
+            position: relative;
+        }
+        
+        .roulette-grid { 
+            display: grid; 
+            grid-template-columns: 40px repeat(12, 1fr); 
+            gap: 2px; 
+            position: relative; 
+            min-width: 600px; /* Ensures grid doesn't collapse too small */
+        }
+
+        .cell { 
+            height: var(--cell-h); display: flex; align-items: center; 
+            justify-content: center; font-weight: bold; cursor: pointer; 
+            border: 1px solid rgba(255,255,255,0.1); font-size: 1rem;
+            position: relative; z-index: 1; transition: background 0.1s;
+        }
+        .cell:active { background: white !important; color: black; }
+
+        .zero { grid-row: span 3; background: var(--green); border: 2px solid white; }
         .r { background: var(--red); }
         .b { background: var(--black); }
+
+        /* Chip Logic - Positioned on the line between streets */
+        .chip {
+            position: absolute; width: 34px; height: 34px;
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 0.75rem; font-weight: 800;
+            z-index: 10; pointer-events: none;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+            transform: translate(-50%, -50%);
+            border: 3px dashed rgba(0,0,0,0.3);
+            color: #000;
+        }
+        .chip-low { background: #ffeb3b; }   /* Yellow for Low Side */
+        .chip-high { background: #ffffff; }  /* White for High Side */
+
+        /* Layout Panels */
+        .main-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        @media (min-width: 900px) { .main-grid { grid-template-columns: 1fr 1fr; } }
         
-        .bet-active { border: 2px solid rgba(255, 255, 255, 0.5) !important; background-color: rgba(255,255,255,0.1); }
+        .panel { background: #2c3e50; padding: 15px; border-radius: 8px; }
+        .log { height: 200px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; font-size: 0.85rem; border-radius: 4px; border: 1px solid #444; }
         
-        .panel { background: #2c3e50; padding: 20px; border-radius: 8px; }
-        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        textarea { width: 100%; height: 80px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; margin-top:10px; }
-        .log { height: 300px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #444; }
         .hidden { display: none; }
-        button { cursor: pointer; padding: 10px; font-weight: bold; border: none; border-radius: 4px; transition: 0.2s; }
-        button:hover { opacity: 0.8; }
+        textarea { width: 100%; box-sizing: border-box; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <div style="display:flex; flex-direction:column;"><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
-        <div style="display:flex; flex-direction:column;"><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
-        <div style="display:flex; flex-direction:column;"><label>Input Mode</label>
+        <div><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
+        <div><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
+        <div style="grid-column: span 2;">
+            <label>Mode</label>
             <select id="mode" onchange="toggleMode()">
-                <option value="manual">Manual Entry (Click Numbers)</option>
-                <option value="sim">Simulation (Bulk Paste)</option>
+                <option value="manual">Manual (Click Board)</option>
+                <option value="sim">Simulation (Paste Numbers)</option>
             </select>
         </div>
-        <button onclick="startSession()" style="background: var(--gold); color: black;">START SESSION</button>
+        <button class="btn-start" onclick="startSession()">START NEW SESSION</button>
     </div>
 
     <div class="stats">
-        <div class="stat-card">Current Bankroll<div id="dispBank">0</div></div>
-        <div class="stat-card">Session P/L<div id="dispProfit">0</div></div>
-        <div class="stat-card">Next Units (L / H)<div id="dispUnits">1 / 1</div></div>
+        <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
+        <div class="stat-card">P/L<div id="dispProfit">0</div></div>
+        <div id="unitCard" class="stat-card">Next Units<div id="dispUnits">1 / 1</div></div>
         <div class="stat-card">Peak<div id="dispPeak">0</div></div>
     </div>
 
-    <div id="simUI" class="panel hidden" style="margin-bottom: 20px;">
-        <label>Paste Numbers (Space or Comma separated):</label>
-        <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4, 21..."></textarea>
-        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color: white;">RUN BULK SIMULATION</button>
+    <div id="simUI" class="panel hidden" style="margin-bottom: 15px;">
+        <textarea id="bulk" rows="3" placeholder="Paste numbers here..."></textarea>
+        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; padding:10px; border:none;">RUN SIM</button>
     </div>
 
-    <div id="manualUI" class="table-area">
+    <div id="manualUI" class="table-outer">
         <div class="roulette-grid" id="grid">
             <div class="cell zero" onclick="press(0)" id="cell-0">0</div>
         </div>
@@ -93,14 +136,14 @@
 
     <div class="main-grid" id="dashboard" style="display:none;">
         <div class="panel">
-            <h3>Betting Instructions</h3>
-            <div id="advice" style="background:var(--blue); padding:15px; border-radius:6px; min-height:60px; line-height: 1.6;">
-                Enter 18 numbers to generate the first prediction.
+            <h3 style="margin-top:0">Betting Instructions</h3>
+            <div id="advice" style="background:var(--blue); padding:12px; border-radius:6px; min-height:40px; font-weight: 500;">
+                Waiting for data...
             </div>
-            <div id="log" class="log" style="margin-top:15px; border-color: #ffc107;"></div>
+            <div id="log" class="log" style="margin-top:10px;"></div>
         </div>
         <div class="panel">
-            <h3>Spin History</h3>
+            <h3 style="margin-top:0">History</h3>
             <div id="histList" class="log"></div>
         </div>
     </div>
@@ -114,14 +157,16 @@
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
     const dsMap = { 1: [1,6], 2: [7,12], 3: [13,18], 4: [19,24], 5: [25,30], 6: [31,36] };
 
-    // Build Table Grid
+    // Initialization: Build the Board
     const grid = document.getElementById('grid');
     for (let i = 1; i <= 36; i++) {
-        let col = Math.ceil(i / 3), row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
+        let col = Math.ceil(i / 3);
+        let row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
         let d = document.createElement('div');
         d.className = `cell ${reds.includes(i) ? 'r' : 'b'}`;
         d.id = `cell-${i}`; d.innerText = i;
-        d.style.gridColumn = col + 1; d.style.gridRow = row;
+        d.style.gridColumn = col + 1;
+        d.style.gridRow = row;
         d.onclick = () => press(i);
         grid.appendChild(d);
     }
@@ -133,14 +178,14 @@
     }
 
     function startSession() {
-        startBank = parseFloat(document.getElementById('inBank').value);
+        startBank = parseFloat(document.getElementById('inBank').value) || 1000;
         bank = startBank;
-        base = parseFloat(document.getElementById('inUnit').value);
+        base = parseFloat(document.getElementById('inUnit').value) || 5;
         peak = bank; history = []; unitLow = 1; unitHigh = 1; active = true; 
         currentPrediction = null;
         document.getElementById('dashboard').style.display = 'grid';
         document.getElementById('histList').innerHTML = "";
-        document.getElementById('log').innerHTML = "";
+        document.getElementById('log').innerHTML = "<div>Session Started. Enter 18 numbers.</div>";
         updateUI(null);
     }
 
@@ -156,105 +201,89 @@
         const last18 = history.slice(-18);
         const dsFreq = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
         last18.forEach(num => { if(num > 0) dsFreq[Math.ceil(num / 6)]++; });
-
+        
         const lowSet = [1, 2, 3].sort((a,b) => dsFreq[b] - dsFreq[a]);
         const highSet = [4, 5, 6].sort((a,b) => dsFreq[b] - dsFreq[a]);
 
-        return {
-            lowSide: [lowSet[0], lowSet[2]], 
-            highSide: [highSet[0], highSet[2]] 
-        };
+        return { lowSide: [lowSet[0], lowSet[2]], highSide: [highSet[0], highSet[2]] };
     }
 
     function processBetResult(n, p) {
-        const costLow = (base * unitLow) * 2;
-        const costHigh = (base * unitHigh) * 2;
-        bank -= (costLow + costHigh);
+        bank -= (base * unitLow * 2) + (base * unitHigh * 2);
+        let ds = Math.ceil(n / 6);
         
-        let landingDS = Math.ceil(n / 6);
-        let winLow = (n > 0 && n <= 18 && p.lowSide.includes(landingDS));
-        let winHigh = (n >= 19 && p.highSide.includes(landingDS));
+        if(n > 0 && n <= 18 && p.lowSide.includes(ds)) {
+            bank += (base * unitLow) * 6;
+            unitLow = Math.max(1, unitLow - 2);
+        } else { unitLow += 1; }
 
-        if(winLow) { bank += (base * unitLow) * 6; unitLow = Math.max(1, unitLow - 2); } 
-        else { unitLow += 1; }
-
-        if(winHigh) { bank += (base * unitHigh) * 6; unitHigh = Math.max(1, unitHigh - 2); } 
-        else { unitHigh += 1; }
+        if(n >= 19 && p.highSide.includes(ds)) {
+            bank += (base * unitHigh) * 6;
+            unitHigh = Math.max(1, unitHigh - 2);
+        } else { unitHigh += 1; }
 
         if(bank > peak) peak = bank;
-
-        const status = (winLow || winHigh) ? "WIN" : "LOSS";
-        const logColor = (winLow || winHigh) ? "#4caf50" : "#ff5252";
-        const logEntry = `<div>Result: <b style="color:${logColor}">${status}</b> | Bank: ${Math.floor(bank)}</div>`;
-        document.getElementById('log').innerHTML = logEntry + document.getElementById('log').innerHTML;
     }
 
-    function placeChip(ds, unitValue, type) {
-        // Find the boundary between the two columns of the double street (e.g. DS1 is col 1 & 2)
-        // We place the chip on the line between the two streets
-        const startNum = dsMap[ds][0];
-        const endNum = dsMap[ds][1];
-        
-        const startCell = document.getElementById(`cell-${startNum}`);
-        const endCell = document.getElementById(`cell-${endNum}`);
-        
-        if (!startCell || !endCell) return;
+    function placeChipOnSplit(ds, units, type) {
+        // Find the "split" point. A Double Street is two columns of 3.
+        // The split line is between the 1st and 2nd column of that DS.
+        // For DS1 (1-6): numbers 1,2,3 are col 2, numbers 4,5,6 are col 3. Split is between col 2 & 3.
+        const firstColOfDS = ((ds - 1) * 2) + 2; 
+        const secondColOfDS = firstColOfDS + 1;
 
-        const rectStart = startCell.getBoundingClientRect();
-        const rectEnd = endCell.getBoundingClientRect();
+        // Get elements to calculate position
+        const sampleCell = document.getElementById(`cell-${dsMap[ds][0]}`); // First number of DS
+        const nextCell = document.getElementById(`cell-${dsMap[ds][3]}`);  // Fourth number of DS (start of 2nd col)
+        
+        const rect1 = sampleCell.getBoundingClientRect();
+        const rect2 = nextCell.getBoundingClientRect();
         const gridRect = grid.getBoundingClientRect();
 
-        // Calculate center position relative to the grid container
-        const top = (rectStart.top + rectEnd.bottom) / 2 - gridRect.top;
-        const left = (rectStart.left + rectEnd.right) / 2 - gridRect.left;
+        // X is the line between the two columns
+        const xPos = rect2.left - gridRect.left;
+        // Y is the middle of the 3-number height
+        const yPos = (rect1.top + rect1.bottom) / 2 - gridRect.top;
 
         const chip = document.createElement('div');
         chip.className = `chip ${type === 'low' ? 'chip-low' : 'chip-high'}`;
-        chip.style.top = `${top}px`;
-        chip.style.left = `${left}px`;
-        chip.innerText = base * unitValue;
+        chip.style.left = `${xPos}px`;
+        chip.style.top = `${yPos}px`;
+        chip.innerText = base * units;
         grid.appendChild(chip);
-
-        // Highlight cells of the DS
-        for(let i = dsMap[ds][0]; i <= dsMap[ds][1]; i++) {
-            document.getElementById(`cell-${i}`).classList.add('bet-active');
-        }
     }
 
     function updateUI(n) {
         document.getElementById('dispBank').innerText = Math.floor(bank);
         document.getElementById('dispProfit').innerText = Math.floor(bank - startBank);
-        document.getElementById('dispUnits').innerText = `${unitLow} / ${unitHigh}`;
+        document.getElementById('dispUnits').innerText = `${unitLow} | ${unitHigh}`;
         document.getElementById('dispPeak').innerText = Math.floor(peak);
 
-        // Clear UI
-        document.querySelectorAll('.cell').forEach(c => c.classList.remove('bet-active'));
+        // Clear board
         document.querySelectorAll('.chip').forEach(c => c.remove());
         
         if(currentPrediction) {
-            currentPrediction.lowSide.forEach(ds => placeChip(ds, unitLow, 'low'));
-            currentPrediction.highSide.forEach(ds => placeChip(ds, unitHigh, 'high'));
+            currentPrediction.lowSide.forEach(ds => placeChipOnSplit(ds, unitLow, 'low'));
+            currentPrediction.highSide.forEach(ds => placeChipOnSplit(ds, unitHigh, 'high'));
 
             document.getElementById('advice').innerHTML = `
-                <b>PLACE BETS:</b><br>
-                Low Side: DS ${currentPrediction.lowSide.join(' & ')} | Total: <b>$${(base * unitLow) * 2}</b><br>
-                High Side: DS ${currentPrediction.highSide.join(' & ')} | Total: <b>$${(base * unitHigh) * 2}</b>
+                BET: Low (DS ${currentPrediction.lowSide.join(',')}) @ $${base*unitLow} ea <br>
+                High (DS ${currentPrediction.highSide.join(',')}) @ $${base*unitHigh} ea
             `;
         }
 
         if(n !== null) {
-            let resClass = reds.includes(n) ? 'color:red' : (n===0 ? 'color:green' : 'color:white');
-            let logMsg = `Spin ${history.length}: <span style="${resClass}; font-weight:bold;">${n}</span>`;
-            document.getElementById('histList').innerHTML = `<div>${logMsg}</div>` + document.getElementById('histList').innerHTML;
+            const color = reds.includes(n) ? '#ff5252' : (n===0 ? '#4caf50' : '#fff');
+            document.getElementById('histList').innerHTML = 
+                `<div>Spin ${history.length}: <b style="color:${color}">${n}</b></div>` + 
+                document.getElementById('histList').innerHTML;
         }
     }
 
     function runSim() {
-        const raw = document.getElementById('bulk').value;
-        const data = raw.split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 36);
-        if(data.length === 0) return alert("Please enter valid numbers");
+        const data = document.getElementById('bulk').value.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
         startSession();
-        data.forEach(n => { if(active) press(n); });
+        data.forEach(n => press(n));
     }
 </script>
 </body>
