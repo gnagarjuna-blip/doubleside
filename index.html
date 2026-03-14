@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Pro - Physical Placement</title>
+    <title>Roulette Sector Progression Tracker v4</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
@@ -11,112 +11,116 @@
         }
         
         body { 
-            font-family: sans-serif; background: #121212; color: white; margin: 0; padding: 10px; 
+            font-family: 'Segoe UI', sans-serif; background: #121212; color: white; margin: 0; padding: 10px; 
             touch-action: manipulation;
         }
 
         .container { max-width: 1000px; margin: auto; }
 
         .header { 
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; 
-            background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 10px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; 
+            background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-bottom: 4px solid var(--gold);
         }
+        .header div { display: flex; flex-direction: column; font-size: 0.85rem; }
+        .header input, .header select { padding: 8px; border-radius: 4px; border: none; margin-top: 5px; background: #eee; font-weight: bold; }
         
-        .action-btns { grid-column: span 2; display: flex; gap: 10px; }
-        .btn { flex: 1; padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .action-btns { grid-column: 1 / -1; display: flex; gap: 10px; margin-top: 5px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn-start { background: var(--gold); color: #000; }
         .btn-undo { background: #e67e22; color: white; }
+        .btn-reset { background: #7f8c8d; color: white; }
+        .btn:hover { opacity: 0.8; }
 
         .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
-        .stat-card { background: #34495e; padding: 10px; border-radius: 6px; text-align: center; font-size: 0.8rem;}
-        .stat-card div { font-size: 1.1rem; color: var(--gold); font-weight: bold; }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat-card { background: #34495e; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
+        .stat-card div { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
 
-        /* TABLE SCROLL SYSTEM */
+        /* THE BOARD */
         .table-scroll-container {
-            overflow-x: auto;
-            background: var(--green);
-            padding: 30px 20px 60px 20px; /* Extra bottom padding for chip overflow */
-            border: 4px solid #3e2723;
-            border-radius: 12px;
+            overflow-x: auto; background: var(--green); padding: 30px 20px 60px 20px; 
+            border: 4px solid #3e2723; border-radius: 12px; position: relative;
             box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
         }
 
         .roulette-grid { 
-            display: grid; 
-            grid-template-columns: 60px repeat(12, 1fr); 
-            gap: 2px; 
-            position: relative; /* Chips will be relative to THIS */
-            min-width: 750px; 
+            display: grid; grid-template-columns: 60px repeat(12, 1fr); 
+            gap: 2px; position: relative; min-width: 750px; 
         }
 
         .cell { 
             height: var(--cell-h); display: flex; align-items: center; 
             justify-content: center; font-weight: bold; cursor: pointer; 
             border: 1px solid rgba(255,255,255,0.2); font-size: 1.1rem;
-            z-index: 1;
         }
 
         .zero { grid-row: span 3; background: var(--green); border: 2px solid white; }
         .r { background: var(--red); }
         .b { background: var(--black); }
 
-        /* REALISTIC CHIPS */
+        /* CHIPS */
         .physical-chip {
-            position: absolute;
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            font-weight: 900;
-            color: white;
-            z-index: 50;
-            transform: translate(-50%, -50%);
-            border: 4px dashed rgba(255,255,255,0.5);
-            text-shadow: 1px 1px 2px #000;
-            box-shadow: 0 4px 0 #222, 0 6px 10px rgba(0,0,0,0.6);
+            position: absolute; width: 38px; height: 38px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 900; color: white; z-index: 50;
+            transform: translate(-50%, -50%); border: 4px dashed rgba(255,255,255,0.5);
+            text-shadow: 1px 1px 2px #000; box-shadow: 0 4px 0 #222, 0 6px 10px rgba(0,0,0,0.6);
             pointer-events: none;
         }
-        .chip-low { background: #c0392b; } /* Red Chips for Low */
-        .chip-high { background: #2980b9; } /* Blue Chips for High */
+        .chip-low { background: #c0392b; } 
+        .chip-high { background: #2980b9; } 
 
-        .last-num { font-size: 2rem; font-weight: 800; text-align: center; margin: 10px 0; }
-        .panel { background: #2c3e50; padding: 15px; border-radius: 8px; }
+        .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
+        .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
+        .hidden { display: none; }
+        textarea { width: 100%; height: 80px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; margin-top: 10px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <div><label>Bankroll</label><input type="number" id="inBank" value="1000" style="width:90%"></div>
-        <div><label>Unit</label><input type="number" id="inUnit" value="5" style="width:90%"></div>
+        <div><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
+        <div><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
+        <div>
+            <label>Mode</label>
+            <select id="mode" onchange="toggleMode()">
+                <option value="manual">Manual Entry</option>
+                <option value="sim">Simulation</option>
+            </select>
+        </div>
         <div class="action-btns">
             <button class="btn btn-start" onclick="startSession()">START SESSION</button>
             <button class="btn btn-undo" onclick="undo()">UNDO</button>
+            <button class="btn btn-reset" onclick="resetAll()">RESET</button>
         </div>
     </div>
 
     <div class="stats">
         <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
-        <div class="stat-card">P/L<div id="dispProfit">0</div></div>
-        <div class="stat-card">Next (L|H)<div id="dispUnits">1 | 1</div></div>
+        <div class="stat-card">Profit/Loss<div id="dispProfit">0</div></div>
+        <div class="stat-card">Units (L|H)<div id="dispUnits">1 | 1</div></div>
         <div class="stat-card">Peak<div id="dispPeak">0</div></div>
     </div>
 
-    <div class="table-scroll-container">
-        <div class="roulette-grid" id="grid">
-            <div class="cell zero" onclick="press(0)" id="cell-0">0</div>
-            </div>
+    <div id="simUI" class="panel hidden">
+        <label>Paste Numbers (Comma or Space separated):</label>
+        <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4..."></textarea>
+        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:10px; border-radius:4px; font-weight:bold; cursor:pointer;">RUN BULK SIMULATION</button>
     </div>
 
-    <div id="dashboard" style="display:none; margin-top:15px;">
-        <div id="last-display" class="last-num">--</div>
+    <div id="manualUI" class="table-scroll-container">
+        <div class="roulette-grid" id="grid">
+            <div class="cell zero" onclick="press(0)" id="cell-0">0</div>
+        </div>
+    </div>
+
+    <div id="dashboard" style="display:none;">
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:10px; background:var(--blue); border-radius:5px;">
-                Enter 18 numbers.
+            <div id="advice" style="text-align:center; font-weight:bold; padding:10px; background:#444; border-radius:5px;">
+                Enter 18 numbers to generate prediction.
             </div>
+            <div id="log" class="log" style="margin-top:10px;"></div>
         </div>
     </div>
 </div>
@@ -128,7 +132,7 @@
     const dsMap = { 1: [1,6], 2: [7,12], 3: [13,18], 4: [19,24], 5: [25,30], 6: [31,36] };
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-    // Build Table
+    // Build Table Numbers
     const grid = document.getElementById('grid');
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3);
@@ -136,18 +140,40 @@
         let d = document.createElement('div');
         d.className = `cell ${reds.includes(i) ? 'r' : 'b'}`;
         d.id = `cell-${i}`; d.innerText = i;
-        d.style.gridColumn = col + 1;
-        d.style.gridRow = row;
+        d.style.gridColumn = col + 1; d.style.gridRow = row;
         d.onclick = () => press(i);
         grid.appendChild(d);
     }
 
+    function toggleMode() {
+        const m = document.getElementById('mode').value;
+        document.getElementById('manualUI').classList.toggle('hidden', m !== 'manual');
+        document.getElementById('simUI').classList.toggle('hidden', m !== 'sim');
+    }
+
+    function saveState() {
+        stateStack.push(JSON.stringify({bank, peak, history, unitLow, unitHigh, currentPrediction}));
+        if(stateStack.length > 50) stateStack.shift();
+    }
+
+    function undo() {
+        if(stateStack.length === 0) return;
+        const s = JSON.parse(stateStack.pop());
+        bank = s.bank; peak = s.peak; history = s.history; unitLow = s.unitLow; 
+        unitHigh = s.unitHigh; currentPrediction = s.currentPrediction;
+        updateUI();
+    }
+
+    function resetAll() { if(confirm("Reset everything?")) location.reload(); }
+
     function startSession() {
-        startBank = parseFloat(document.getElementById('inBank').value);
+        startBank = parseFloat(document.getElementById('inBank').value) || 1000;
         bank = startBank;
-        base = parseFloat(document.getElementById('inUnit').value);
-        peak = bank; history = []; active = true; stateStack = [];
+        base = parseFloat(document.getElementById('inUnit').value) || 5;
+        peak = bank; history = []; unitLow = 1; unitHigh = 1; active = true; 
+        currentPrediction = null; stateStack = [];
         document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('log').innerHTML = "";
         updateUI();
     }
 
@@ -155,19 +181,18 @@
         if(!active) return;
         saveState();
         if(currentPrediction) {
-            // Deduct Bets
             bank -= (base * unitLow * 2) + (base * unitHigh * 2);
             let ds = Math.ceil(n / 6);
-            // Low Logic
-            if(n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds)) {
-                bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2);
-            } else if(n > 0 && n <= 18) { unitLow++; }
-            // High Logic
-            if(n >= 19 && currentPrediction.highSide.includes(ds)) {
-                bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2);
-            } else if(n >= 19) { unitHigh++; }
-            // Zero Logic
-            if(n === 0) { unitLow++; unitHigh++; }
+            
+            // Progression Logic
+            let winLow = (n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds));
+            let winHigh = (n >= 19 && currentPrediction.highSide.includes(ds));
+
+            if(winLow) { bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2); }
+            else { unitLow += 1; }
+
+            if(winHigh) { bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); }
+            else { unitHigh += 1; }
         }
         history.push(n);
         currentPrediction = history.length >= 18 ? generatePrediction() : null;
@@ -183,67 +208,43 @@
         return { lowSide: [lowSet[0], lowSet[2]], highSide: [highSet[0], highSet[2]] };
     }
 
-    function renderChips() {
-        // Clear old chips
-        document.querySelectorAll('.physical-chip').forEach(c => c.remove());
-        if(!currentPrediction) return;
-
-        const place = (ds, val, type) => {
-            // A Double Street (e.g., 1-6) spans two columns. 
-            // In CSS Grid, col 1 is '0', col 2 is numbers 1,2,3. col 3 is numbers 4,5,6.
-            // The line is between the first and second street.
-            const firstStreetCol = Math.ceil(dsMap[ds][0] / 3) + 1;
-            const targetCol = firstStreetCol + 1; // The line between col 1 and 2 of the DS
-            
-            const chip = document.createElement('div');
-            chip.className = `physical-chip ${type === 'low' ? 'chip-low' : 'chip-high'}`;
-            chip.innerText = base * val;
-            
-            // Place on the grid using grid lines
-            // grid-column line: targetCol
-            // grid-row line: 4 (the bottom line of the 3rd row)
-            chip.style.gridColumn = targetCol;
-            chip.style.gridRow = 4; 
-            
-            grid.appendChild(chip);
-        };
-
-        currentPrediction.lowSide.forEach(ds => place(ds, unitLow, 'low'));
-        currentPrediction.highSide.forEach(ds => place(ds, unitHigh, 'high'));
-    }
-
     function updateUI(n) {
         document.getElementById('dispBank').innerText = Math.floor(bank);
         document.getElementById('dispProfit').innerText = Math.floor(bank - startBank);
         document.getElementById('dispUnits').innerText = `${unitLow} | ${unitHigh}`;
-        document.getElementById('dispPeak').innerText = Math.floor(Math.max(peak, bank));
+        if(bank > peak) peak = bank;
+        document.getElementById('dispPeak').innerText = Math.floor(peak);
+
+        document.querySelectorAll('.physical-chip').forEach(c => c.remove());
         
-        const disp = document.getElementById('last-display');
-        if(n !== undefined) {
-            disp.innerText = n;
-            disp.style.color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
-        }
-
         if(currentPrediction) {
-            document.getElementById('advice').innerText = "BETS PLACED ON TABLE";
+            const place = (ds, val, type) => {
+                const targetCol = Math.ceil(dsMap[ds][0] / 3) + 2;
+                const chip = document.createElement('div');
+                chip.className = `physical-chip ${type === 'low' ? 'chip-low' : 'chip-high'}`;
+                chip.innerText = base * val;
+                chip.style.gridColumn = targetCol;
+                chip.style.gridRow = 4;
+                grid.appendChild(chip);
+            };
+            currentPrediction.lowSide.forEach(ds => place(ds, unitLow, 'low'));
+            currentPrediction.highSide.forEach(ds => place(ds, unitHigh, 'high'));
+            document.getElementById('advice').innerText = "BETS PLACED ON BOARD";
             document.getElementById('advice').style.background = "var(--blue)";
-        } else {
-            document.getElementById('advice').innerText = `Need ${18 - history.length} more spins`;
-            document.getElementById('advice').style.background = "#444";
         }
-        renderChips();
+
+        if(n !== undefined && n !== null) {
+            const color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
+            document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b style="color:${color}">${n}</b> | Bank: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
+        }
     }
 
-    function saveState() {
-        stateStack.push(JSON.stringify({bank, history, unitLow, unitHigh, currentPrediction}));
-    }
-
-    function undo() {
-        if(stateStack.length === 0) return;
-        const s = JSON.parse(stateStack.pop());
-        bank = s.bank; history = s.history; unitLow = s.unitLow; 
-        unitHigh = s.unitHigh; currentPrediction = s.currentPrediction;
-        updateUI(history[history.length-1]);
+    function runSim() {
+        const raw = document.getElementById('bulk').value;
+        const data = raw.split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 36);
+        if(data.length === 0) return alert("Enter valid numbers");
+        startSession();
+        data.forEach(n => press(n));
     }
 </script>
 </body>
