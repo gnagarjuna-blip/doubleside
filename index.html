@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Cross-Progression Tracker v7.0</title>
+    <title>Roulette Cross-Progression Tracker v7.1</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
@@ -21,13 +21,13 @@
             display: flex; flex-wrap: wrap; gap: 10px; 
             background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-bottom: 4px solid var(--gold);
         }
-        .header .input-group { flex: 1 1 120px; display: flex; flex-direction: column; font-size: 0.85rem; }
+        .header .input-group { flex: 1 1 140px; display: flex; flex-direction: column; font-size: 0.85rem; }
         .header input, .header select { padding: 10px; border-radius: 4px; border: none; margin-top: 5px; background: #eee; font-weight: bold; font-size: 1rem; }
         
         .action-btns { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
         .btn { 
             flex: 1 1 100px; padding: 14px 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
-            font-size: 0.9rem; text-transform: uppercase;
+            transition: transform 0.1s; font-size: 0.9rem; text-transform: uppercase;
         }
         .btn-start { background: var(--gold); color: #000; flex: 2 1 200px; }
         .btn-undo { background: #e67e22; color: white; }
@@ -35,12 +35,13 @@
 
         .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
         @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
-        .stat-card { background: #34495e; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
+        .stat-card { background: #34495e; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
         .stat-card div { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
 
         .table-scroll-container {
-            overflow-x: auto; background: var(--green); padding: 40px 20px 80px 20px; 
+            overflow-x: auto; background: var(--green); padding: 30px 20px 60px 20px; 
             border: 4px solid #3e2723; border-radius: 12px; position: relative;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
         }
 
         .roulette-grid { 
@@ -59,20 +60,20 @@
         .b { background: var(--black); }
 
         .physical-chip {
-            position: absolute; width: 40px; height: 40px; border-radius: 50%;
+            position: absolute; width: 38px; height: 38px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.85rem; font-weight: 900; z-index: 100;
-            transform: translate(-50%, 50%); 
-            border: 3px dashed rgba(255,255,255,0.5);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+            font-size: 0.8rem; font-weight: 900; color: white; z-index: 50;
+            transform: translate(-50%, 50%); border: 3px dashed rgba(255,255,255,0.5);
+            text-shadow: 1px 1px 2px #000; box-shadow: 0 4px 0 #222;
             pointer-events: none;
         }
-        .chip-orig-low { background: #c0392b; color: white; } 
-        .chip-orig-high { background: #2980b9; color: white; } 
-        .chip-vacant { background: #ffeb3b; color: #000; border: 3px dashed #333; }
+        .chip-low { background: #c0392b; } 
+        .chip-high { background: #2980b9; } 
+        .chip-vacant { background: #ffeb3b; color: #000; text-shadow: none; border-color: #333; }
 
         .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
-        .log { height: 120px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
+        .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -84,8 +85,8 @@
         <div class="input-group">
             <label>Strategy Mode</label>
             <select id="strategyType" onchange="updateUI()">
-                <option value="original">Original (Linked Progression)</option>
-                <option value="vacant">Vacant (2-Loss Progression)</option>
+                <option value="original">Original (Cross-Linked)</option>
+                <option value="vacant">Vacant (2-Loss Rule)</option>
             </select>
         </div>
         <div class="action-btns">
@@ -97,9 +98,9 @@
 
     <div class="stats">
         <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
-        <div class="stat-card">P/L<div id="dispProfit">0</div></div>
-        <div class="stat-card">Low Units<div id="dispLow">1</div></div>
-        <div class="stat-card">High Units<div id="dispHigh">1</div></div>
+        <div class="stat-card">Profit/Loss<div id="dispProfit">0</div></div>
+        <div class="stat-card">Units (L|H)<div id="dispUnits">1 | 1</div></div>
+        <div class="stat-card">Peak<div id="dispPeak">0</div></div>
     </div>
 
     <div id="manualUI" class="table-scroll-container">
@@ -110,32 +111,34 @@
 
     <div id="dashboard" style="display:none;">
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:10px; background:#444; border-radius:5px; color:var(--gold);">Waiting for 18 spins to detect frequency...</div>
+            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px;">Enter 18 numbers.</div>
             <div id="log" class="log" style="margin-top:10px;"></div>
         </div>
     </div>
 </div>
 
 <script>
-    let bank, startBank, history = [], stateStack = [], base, active = false;
-    let uLow = 1, uHigh = 1;
-    let vLossCountLow = 0, vLossCountHigh = 0;
+    let bank, startBank, peak, history = [], stateStack = [], base, active = false;
+    let uL = 1, uH = 1;
+    let vLossL = 0, vLossH = 0;
     let currentPrediction = null;
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-    // Build Table
+    const grid = document.getElementById('grid');
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3);
         let row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
         let d = document.createElement('div');
         d.className = `cell ${reds.includes(i) ? 'r' : 'b'}`;
-        d.innerText = i; d.style.gridColumn = col + 1; d.style.gridRow = row;
+        d.id = `cell-${i}`; d.innerText = i;
+        d.style.gridColumn = col + 1; d.style.gridRow = row;
         d.onclick = () => press(i);
-        document.getElementById('grid').appendChild(d);
+        grid.appendChild(d);
     }
 
     function saveState() {
-        stateStack.push(JSON.stringify({bank, history: [...history], uLow, uHigh, vLossCountLow, vLossCountHigh, currentPrediction}));
+        stateStack.push(JSON.stringify({bank, peak, history: [...history], uL, uH, vLossL, vLossH, currentPrediction}));
+        if(stateStack.length > 50) stateStack.shift();
     }
 
     function undo() {
@@ -145,13 +148,13 @@
         updateUI();
     }
 
-    function resetAll() { if(confirm("Reset session?")) location.reload(); }
+    function resetAll() { if(confirm("Reset?")) location.reload(); }
 
     function startSession() {
         startBank = parseFloat(document.getElementById('inBank').value) || 1000;
         bank = startBank;
         base = parseFloat(document.getElementById('inUnit').value) || 5;
-        history = []; uLow = 1; uHigh = 1; vLossCountLow = 0; vLossCountHigh = 0;
+        peak = bank; history = []; uL = 1; uH = 1; vLossL = 0; vLossH = 0;
         active = true; currentPrediction = null;
         document.getElementById('dashboard').style.display = 'block';
         updateUI();
@@ -163,53 +166,37 @@
         const mode = document.getElementById('strategyType').value;
 
         if(currentPrediction) {
-            const betMultiplier = mode === 'original' ? 2 : 1;
-            bank -= (base * uLow * betMultiplier) + (base * uHigh * betMultiplier);
-
+            const mult = mode === 'original' ? 2 : 1;
+            bank -= (base * uL * mult) + (base * uH * mult);
+            
             let ds = Math.ceil(n / 6);
-            let hitLow = false;
-            let hitHigh = false;
+            let hitL = false, hitH = false;
 
             if (mode === 'original') {
-                hitLow = (n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds));
-                hitHigh = (n >= 19 && currentPrediction.highSide.includes(ds));
+                hitL = (n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds));
+                hitH = (n >= 19 && currentPrediction.highSide.includes(ds));
                 
-                // --- ORIGINAL CROSS-PROGRESION ---
-                if (hitLow) {
-                    bank += (base * uLow * 6);
-                    uHigh = Math.max(1, uHigh - 2); // Win on Low side, decrease High side units
-                } else if (n > 0) {
-                    uLow += 1; // Loss on Low side, increase Low units
-                }
+                // ORIGINAL CROSS-LINKED LOGIC
+                if (hitL) { bank += (base * uL * 6); uH = Math.max(1, uH - 2); } 
+                else if (n > 0) { uL += 1; }
 
-                if (hitHigh) {
-                    bank += (base * uHigh * 6);
-                    uLow = Math.max(1, uLow - 2); // Win on High side, decrease Low side units
-                } else if (n > 0) {
-                    uHigh += 1; // Loss on High side, increase High units
-                }
-
+                if (hitH) { bank += (base * uH * 6); uL = Math.max(1, uL - 2); } 
+                else if (n > 0) { uH += 1; }
             } else {
-                hitLow = (n > 0 && n <= 18 && currentPrediction.lowVacant === ds);
-                hitHigh = (n >= 19 && n <= 36 && currentPrediction.highVacant === ds);
+                hitL = (n > 0 && n <= 18 && currentPrediction.lowVacant === ds);
+                hitH = (n >= 19 && currentPrediction.highVacant === ds);
 
-                // --- VACANT 2-LOSS PROGRESSION ---
-                if (hitLow) {
-                    bank += (base * uLow * 6); uLow = Math.max(1, uLow - 2); vLossCountLow = 0;
-                } else if (n > 0) {
-                    vLossCountLow++; if (vLossCountLow >= 2) { uLow += 1; vLossCountLow = 0; }
-                }
+                // VACANT 2-LOSS LOGIC
+                if (hitL) { bank += (base * uL * 6); uL = Math.max(1, uL - 2); vLossL = 0; }
+                else if (n > 0) { vLossL++; if(vLossL >= 2){ uL++; vLossL = 0; } }
 
-                if (hitHigh) {
-                    bank += (base * uHigh * 6); uHigh = Math.max(1, uHigh - 2); vLossCountHigh = 0;
-                } else if (n > 0) {
-                    vLossCountHigh++; if (vLossCountHigh >= 2) { uHigh += 1; vLossCountHigh = 0; }
-                }
+                if (hitH) { bank += (base * uH * 6); uH = Math.max(1, uH - 2); vLossH = 0; }
+                else if (n > 0) { vLossH++; if(vLossH >= 2){ uH++; vLossH = 0; } }
             }
         }
-
         history.push(n);
         currentPrediction = history.length >= 18 ? generatePrediction() : null;
+        if(bank > peak) peak = bank;
         updateUI(n);
     }
 
@@ -220,47 +207,45 @@
         const lowSet = [1,2,3].sort((a,b) => freq[b] - freq[a]);
         const highSet = [4,5,6].sort((a,b) => freq[b] - freq[a]);
         return { 
-            lowSide: [lowSet[0], lowSet[2]], 
-            highSide: [highSet[0], highSet[2]],
-            lowVacant: lowSet[1], 
-            highVacant: highSet[1]
+            lowSide: [lowSet[0], lowSet[2]], highSide: [highSet[0], highSet[2]],
+            lowVacant: lowSet[1], highVacant: highSet[1]
         };
     }
 
     function updateUI(n) {
         document.getElementById('dispBank').innerText = Math.floor(bank);
         document.getElementById('dispProfit').innerText = Math.floor(bank - startBank);
-        document.getElementById('dispLow').innerText = uLow;
-        document.getElementById('dispHigh').innerText = uHigh;
+        document.getElementById('dispUnits').innerText = `${uL} | ${uH}`;
+        document.getElementById('dispPeak').innerText = Math.floor(peak);
 
         document.querySelectorAll('.physical-chip').forEach(c => c.remove());
         const mode = document.getElementById('strategyType').value;
 
         if(currentPrediction) {
-            const place = (ds, val, isVacant) => {
+            const place = (ds, val, type) => {
                 const startCol = (ds - 1) * 2 + 2; 
                 const chip = document.createElement('div');
-                chip.className = `physical-chip ${isVacant ? 'chip-vacant' : (ds <= 3 ? 'chip-orig-low' : 'chip-orig-high')}`;
+                chip.className = `physical-chip chip-${type}`;
                 chip.innerText = base * val;
                 chip.style.gridColumn = startCol; 
                 chip.style.gridRow = 3; 
-                document.getElementById('grid').appendChild(chip);
+                grid.appendChild(chip);
             };
 
             if (mode === 'original') {
-                currentPrediction.lowSide.forEach(ds => place(ds, uLow, false));
-                currentPrediction.highSide.forEach(ds => place(ds, uHigh, false));
-                document.getElementById('advice').innerText = "ORIGINAL: CROSS-LINKED PROGRESSION";
+                currentPrediction.lowSide.forEach(ds => place(ds, uL, 'low'));
+                currentPrediction.highSide.forEach(ds => place(ds, uH, 'high'));
+                document.getElementById('advice').innerText = "ORIGINAL MODE ACTIVE";
             } else {
-                place(currentPrediction.lowVacant, uLow, true);
-                place(currentPrediction.highVacant, uHigh, true);
-                document.getElementById('advice').innerText = "VACANT: 2-LOSS PROGRESSION";
+                place(currentPrediction.lowVacant, uL, 'vacant');
+                place(currentPrediction.highVacant, uH, 'vacant');
+                document.getElementById('advice').innerText = "VACANT MODE ACTIVE (YELLOW)";
             }
         }
 
         if(n !== undefined) {
             const color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
-            document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b style="color:${color}">${n}</b> | Bal: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
+            document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b style="color:${color}">${n}</b> | Bank: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
         }
     }
 </script>
