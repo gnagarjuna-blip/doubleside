@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Sector Progression Tracker v4.5</title>
+    <title>Roulette Sector Corner Tracker v5.0</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
             --gold: #ffc107; --blue: #2196f3; --cell-h: 50px;
-            --vacant-yellow: #ffeb3b;
         }
         
         body { 
@@ -28,22 +27,20 @@
         .action-btns { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
         .btn { 
             flex: 1 1 100px; padding: 14px 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
-            transition: transform 0.1s, opacity 0.2s; font-size: 0.9rem; text-transform: uppercase;
+            transition: transform 0.1s; font-size: 0.9rem; text-transform: uppercase;
         }
-        .btn:active { transform: scale(0.95); }
         .btn-start { background: var(--gold); color: #000; flex: 2 1 200px; }
         .btn-undo { background: #e67e22; color: white; }
         .btn-reset { background: #7f8c8d; color: white; }
 
         .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
         @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
-        .stat-card { background: #34495e; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
+        .stat-card { background: #34495e; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
         .stat-card div { font-size: 1.1rem; color: var(--gold); font-weight: bold; }
 
         .table-scroll-container {
-            overflow-x: auto; background: var(--green); padding: 30px 20px 60px 20px; 
+            overflow-x: auto; background: var(--green); padding: 40px 20px 80px 20px; 
             border: 4px solid #3e2723; border-radius: 12px; position: relative;
-            box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
         }
 
         .roulette-grid { 
@@ -61,22 +58,22 @@
         .r { background: var(--red); }
         .b { background: var(--black); }
 
+        /* PHYSICAL CHIP POSITIONED ON LINE */
         .physical-chip {
-            position: absolute; width: 36px; height: 36px; border-radius: 50%;
+            position: absolute; width: 34px; height: 34px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.75rem; font-weight: 900; color: white; z-index: 50;
-            transform: translate(-50%, -50%); border: 3px dashed rgba(255,255,255,0.5);
-            text-shadow: 1px 1px 2px #000; box-shadow: 0 3px 0 #222;
+            font-size: 0.75rem; font-weight: 900; z-index: 100;
+            transform: translate(-50%, -50%); /* Centers chip on the line intersection */
+            border: 2px solid rgba(0,0,0,0.5);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
             pointer-events: none;
         }
-        .chip-low { background: #c0392b; } 
-        .chip-high { background: #2980b9; } 
-        .chip-vacant { background: var(--vacant-yellow); color: #000; text-shadow: none; border-color: #444; }
+        .chip-low { background: #c0392b; color: white; } 
+        .chip-high { background: #2980b9; color: white; } 
+        .chip-vacant { background: #ffeb3b; color: #000; border: 2px solid #555; }
 
         .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
-        .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
-        .hidden { display: none; }
-        textarea { width: 100%; height: 80px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; margin-top: 10px; box-sizing: border-box; font-size: 1rem; }
+        .log { height: 120px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -101,14 +98,14 @@
 
     <div class="stats">
         <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
-        <div class="stat-card">Profit/Loss<div id="dispProfit">0</div></div>
-        <div class="stat-card">Orig (L|H)<div id="dispUnits">1 | 1</div></div>
-        <div class="stat-card">Vacant (L|H)<div id="dispVacant">1 | 1</div></div>
+        <div class="stat-card">P/L<div id="dispProfit">0</div></div>
+        <div class="stat-card">Orig Unit (L|H)<div id="dispUnits">1 | 1</div></div>
+        <div class="stat-card">Vacant Unit (L|H)<div id="dispVacant">1 | 1</div></div>
     </div>
 
-    <div id="simUI" class="panel hidden">
-        <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4..."></textarea>
-        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:15px; border-radius:4px; font-weight:bold; cursor:pointer;">RUN SIMULATION</button>
+    <div id="simUI" class="panel" style="display:none;">
+        <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4..." style="width:100%; height:60px;"></textarea>
+        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:10px; cursor:pointer;">RUN SIM</button>
     </div>
 
     <div id="manualUI" class="table-scroll-container">
@@ -119,41 +116,39 @@
 
     <div id="dashboard" style="display:none;">
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px;">Enter 18 numbers.</div>
+            <div id="advice" style="text-align:center; font-weight:bold; padding:8px; background:#444; border-radius:5px;">Enter 18 spins to start.</div>
             <div id="log" class="log" style="margin-top:10px;"></div>
         </div>
     </div>
 </div>
 
 <script>
-    let bank, startBank, peak, history = [], stateStack = [], base, active = false;
+    let bank, startBank, history = [], stateStack = [], base, active = false;
     let unitLow = 1, unitHigh = 1;
     let vUnitLow = 1, vUnitHigh = 1;
-    let vLossLow = 0, vLossHigh = 0; // Track consecutive losses for Vacant spots
+    let vLossLow = 0, vLossHigh = 0;
     let currentPrediction = null;
-    const dsMap = { 1: [1,6], 2: [7,12], 3: [13,18], 4: [19,24], 5: [25,30], 6: [31,36] };
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-    const grid = document.getElementById('grid');
+    // Build Table
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3);
         let row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
         let d = document.createElement('div');
         d.className = `cell ${reds.includes(i) ? 'r' : 'b'}`;
-        d.id = `cell-${i}`; d.innerText = i;
-        d.style.gridColumn = col + 1; d.style.gridRow = row;
+        d.innerText = i; d.style.gridColumn = col + 1; d.style.gridRow = row;
         d.onclick = () => press(i);
-        grid.appendChild(d);
+        document.getElementById('grid').appendChild(d);
     }
 
     function toggleMode() {
         const m = document.getElementById('mode').value;
-        document.getElementById('manualUI').classList.toggle('hidden', m !== 'manual');
-        document.getElementById('simUI').classList.toggle('hidden', m !== 'sim');
+        document.getElementById('manualUI').style.display = m === 'manual' ? 'block' : 'none';
+        document.getElementById('simUI').style.display = m === 'sim' ? 'block' : 'none';
     }
 
     function saveState() {
-        stateStack.push(JSON.stringify({bank, peak, history: [...history], unitLow, unitHigh, vUnitLow, vUnitHigh, vLossLow, vLossHigh, currentPrediction}));
+        stateStack.push(JSON.stringify({bank, history: [...history], unitLow, unitHigh, vUnitLow, vUnitHigh, vLossLow, vLossHigh, currentPrediction}));
     }
 
     function undo() {
@@ -169,7 +164,7 @@
         startBank = parseFloat(document.getElementById('inBank').value) || 1000;
         bank = startBank;
         base = parseFloat(document.getElementById('inUnit').value) || 5;
-        peak = bank; history = []; unitLow = 1; unitHigh = 1; vUnitLow = 1; vUnitHigh = 1;
+        history = []; unitLow = 1; unitHigh = 1; vUnitLow = 1; vUnitHigh = 1;
         vLossLow = 0; vLossHigh = 0; active = true; currentPrediction = null;
         document.getElementById('dashboard').style.display = 'block';
         updateUI();
@@ -179,37 +174,28 @@
         if(!active) return;
         saveState();
         if(currentPrediction) {
-            // Deduct Bets (4 Original + 2 Vacant)
+            // Bet deduction
             bank -= (base * unitLow * 2) + (base * unitHigh * 2) + (base * vUnitLow) + (base * vUnitHigh);
-            
             let ds = Math.ceil(n / 6);
             
-            // --- ORIGINAL LOGIC ---
+            // --- ORIGINAL (+1 Loss / -2 Win) ---
             if(n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds)) { bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2); }
             else if (n > 0 && n <= 18) { unitLow += 1; }
 
             if(n >= 19 && currentPrediction.highSide.includes(ds)) { bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); }
             else if (n >= 19) { unitHigh += 1; }
 
-            // --- VACANT LOGIC (Yellow) ---
-            // Low Vacant
+            // --- VACANT (+1 every 2 Losses / -2 Win) ---
             if(n > 0 && n <= 18 && currentPrediction.lowVacant === ds) {
-                bank += (base * vUnitLow * 6);
-                vUnitLow = Math.max(1, vUnitLow - 2);
-                vLossLow = 0;
+                bank += (base * vUnitLow * 6); vUnitLow = Math.max(1, vUnitLow - 2); vLossLow = 0;
             } else if (n > 0) {
-                vLossLow++;
-                if(vLossLow >= 2) { vUnitLow += 1; vLossLow = 0; }
+                vLossLow++; if(vLossLow >= 2) { vUnitLow += 1; vLossLow = 0; }
             }
 
-            // High Vacant
-            if(n >= 19 && currentPrediction.highVacant === ds) {
-                bank += (base * vUnitHigh * 6);
-                vUnitHigh = Math.max(1, vUnitHigh - 2);
-                vLossHigh = 0;
+            if(n >= 19 && n <= 36 && currentPrediction.highVacant === ds) {
+                bank += (base * vUnitHigh * 6); vUnitHigh = Math.max(1, vUnitHigh - 2); vLossHigh = 0;
             } else if (n > 0) {
-                vLossHigh++;
-                if(vLossHigh >= 2) { vUnitHigh += 1; vLossHigh = 0; }
+                vLossHigh++; if(vLossHigh >= 2) { vUnitHigh += 1; vLossHigh = 0; }
             }
         }
         history.push(n);
@@ -221,17 +207,11 @@
         const last18 = history.slice(-18);
         const freq = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
         last18.forEach(n => { if(n>0) freq[Math.ceil(n/6)]++; });
-        
         const lowSet = [1,2,3].sort((a,b) => freq[b] - freq[a]);
         const highSet = [4,5,6].sort((a,b) => freq[b] - freq[a]);
-        
-        // Original: Best & Worst (1st & 3rd). Vacant: The "Middle" or least frequent not in original set? 
-        // Based on your prompt: 1st and 3rd are Low Side, Vacant is the 2nd (the one left out).
         return { 
-            lowSide: [lowSet[0], lowSet[2]], 
-            highSide: [highSet[0], highSet[2]],
-            lowVacant: lowSet[1], 
-            highVacant: highSet[1]
+            lowSide: [lowSet[0], lowSet[2]], highSide: [highSet[0], highSet[2]],
+            lowVacant: lowSet[1], highVacant: highSet[1]
         };
     }
 
@@ -244,34 +224,38 @@
         document.querySelectorAll('.physical-chip').forEach(c => c.remove());
         
         if(currentPrediction) {
-            const place = (ds, val, type) => {
-                const targetCol = Math.ceil(dsMap[ds][0] / 3) + 2;
+            const placeCorner = (ds, val, type) => {
+                // ds 1: cols 2-3 (line at col 2 start)
+                // ds 2: cols 4-5 (line at col 4 start)
+                // Each double street starts at col: (ds-1)*2 + 2
+                const startCol = (ds - 1) * 2 + 2;
                 const chip = document.createElement('div');
                 chip.className = `physical-chip chip-${type}`;
                 chip.innerText = base * val;
-                chip.style.gridColumn = targetCol;
+                
+                // Position on the grid line (the corner of the double street)
+                chip.style.gridColumn = startCol; 
                 chip.style.gridRow = type === 'vacant' ? 2 : (type === 'low' ? 1 : 3);
-                grid.appendChild(chip);
+                
+                document.getElementById('grid').appendChild(chip);
             };
-            currentPrediction.lowSide.forEach(ds => place(ds, unitLow, 'low'));
-            currentPrediction.highSide.forEach(ds => place(ds, unitHigh, 'high'));
-            place(currentPrediction.lowVacant, vUnitLow, 'vacant');
-            place(currentPrediction.highVacant, vUnitHigh, 'vacant');
-            
-            document.getElementById('advice').innerText = "BETS PLACED (RED/BLUE = ORIG, YELLOW = VACANT)";
-            document.getElementById('advice').style.background = "var(--blue)";
+
+            currentPrediction.lowSide.forEach(ds => placeCorner(ds, unitLow, 'low'));
+            currentPrediction.highSide.forEach(ds => placeCorner(ds, unitHigh, 'high'));
+            placeCorner(currentPrediction.lowVacant, vUnitLow, 'vacant');
+            placeCorner(currentPrediction.highVacant, vUnitHigh, 'vacant');
         }
 
         if(n !== undefined) {
             const color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
-            document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b style="color:${color}">${n}</b> | Bank: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
+            document.getElementById('log').innerHTML = `<div>Spin: <b style="color:${color}">${n}</b> | Bal: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
         }
     }
 
     function runSim() {
         const raw = document.getElementById('bulk').value;
         const data = raw.split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 36);
-        if(data.length === 0) return alert("Enter valid numbers");
+        if(data.length === 0) return alert("Enter numbers");
         startSession();
         data.forEach(n => press(n));
     }
