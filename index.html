@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Sector Progression Tracker v4.1 - Fixed</title>
+    <title>Roulette Sector Progression Tracker v4.1</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
@@ -22,12 +22,12 @@
             background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-bottom: 4px solid var(--gold);
         }
         .header .input-group { flex: 1 1 140px; display: flex; flex-direction: column; font-size: 0.85rem; }
-        .header input, .header select { padding: 10px; border-radius: 4px; border: none; margin-top: 5px; background: #eee; font-weight: bold; font-size: 1rem; color: #1a1a1a; }
+        .header input, .header select { padding: 10px; border-radius: 4px; border: none; margin-top: 5px; background: #eee; font-weight: bold; font-size: 1rem; color: #333; }
         
         .action-btns { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
         .btn { 
             flex: 1 1 100px; padding: 14px 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
-            transition: transform 0.1s; font-size: 0.9rem; text-transform: uppercase;
+            transition: transform 0.1s, opacity 0.2s; font-size: 0.9rem; text-transform: uppercase;
         }
         .btn:active { transform: scale(0.95); }
         .btn-start { background: var(--gold); color: #000; flex: 2 1 200px; }
@@ -54,7 +54,7 @@
             height: var(--cell-h); display: flex; align-items: center; 
             justify-content: center; font-weight: bold; cursor: pointer; 
             border: 1px solid rgba(255,255,255,0.2); font-size: 1.1rem;
-            z-index: 5;
+            z-index: 2; /* Ensures they are above background elements */
         }
 
         .zero { grid-row: 1 / span 3; background: var(--green); border: 2px solid white; }
@@ -65,15 +65,14 @@
             position: absolute; width: 38px; height: 38px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             font-size: 0.8rem; font-weight: 900; color: white; z-index: 50;
-            transform: translate(-50%, 50%); border: 3px dashed rgba(255,255,255,0.5);
-            text-shadow: 1px 1px 2px #000; box-shadow: 0 4px 0 #222;
+            transform: translate(-50%, -50%); border: 4px dashed rgba(255,255,255,0.5);
+            text-shadow: 1px 1px 2px #000; box-shadow: 0 4px 0 #222, 0 6px 10px rgba(0,0,0,0.6);
             pointer-events: none;
         }
-        .chip-low { background: #c0392b; } 
-        .chip-high { background: #2980b9; } 
 
         .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
         .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -84,7 +83,7 @@
         <div class="input-group"><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
         <div class="input-group">
             <label>Mode</label>
-            <select id="mode">
+            <select id="mode" onchange="toggleMode()">
                 <option value="manual">Manual Entry</option>
             </select>
         </div>
@@ -110,7 +109,7 @@
 
     <div id="dashboard" style="display:none;">
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px; font-size: 1rem;">
+            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px;">
                 Enter 18 numbers to generate prediction.
             </div>
             <div id="log" class="log" style="margin-top:10px;"></div>
@@ -120,10 +119,10 @@
 
 <script>
     let bank, startBank, peak, history = [], stateStack = [], base, active = false;
-    let uL = 1, uH = 1;
-    let currentPrediction = null;
+    let unitLow = 1, unitHigh = 1;
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
+    // Build Table Numbers
     const grid = document.getElementById('grid');
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3);
@@ -137,14 +136,19 @@
         grid.appendChild(d);
     }
 
+    function toggleMode() {
+        // Reserved for future use
+    }
+
     function saveState() {
-        stateStack.push(JSON.stringify({bank, peak, history: [...history], uL, uH, currentPrediction}));
+        stateStack.push(JSON.stringify({bank, peak, history: [...history], unitLow, unitHigh}));
     }
 
     function undo() {
         if(stateStack.length === 0) return;
         const s = JSON.parse(stateStack.pop());
-        Object.assign(window, s);
+        bank = s.bank; peak = s.peak; history = s.history; 
+        unitLow = s.unitLow; unitHigh = s.unitHigh;
         updateUI();
     }
 
@@ -153,8 +157,7 @@
     function startSession() {
         startBank = bank = parseFloat(document.getElementById('inBank').value) || 1000;
         base = parseFloat(document.getElementById('inUnit').value) || 5;
-        peak = bank; history = []; uL = 1; uH = 1; active = true; 
-        currentPrediction = null; stateStack = [];
+        peak = bank; history = []; unitLow = 1; unitHigh = 1; active = true; 
         document.getElementById('dashboard').style.display = 'block';
         updateUI();
     }
@@ -162,55 +165,18 @@
     function press(n) {
         if(!active) return;
         saveState();
-        
-        if(currentPrediction) {
-            bank -= (uL * base * 2) + (uH * base * 2);
-            let ds = Math.ceil(n/6);
-            let hitL = (n > 0 && n <= 18 && currentPrediction.low.includes(ds));
-            let hitH = (n >= 19 && n <= 36 && currentPrediction.high.includes(ds));
-
-            // Logic: +1 on side loss, -2 on opposite win
-            if(hitL) { bank += (uL * base * 6); uH = Math.max(1, uH - 2); } 
-            else if (n <= 18 || n === 0) { uL += 1; }
-
-            if(hitH) { bank += (uH * base * 6); uL = Math.max(1, uL - 2); } 
-            else if (n >= 19 || n === 0) { uH += 1; }
-        }
-
         history.push(n);
-        if(history.length >= 18) {
-            let f = {1:0,2:0,3:0,4:0,5:0,6:0};
-            history.slice(-18).forEach(x => { if(x>0) f[Math.ceil(x/6)]++; });
-            let lS = [1,2,3].sort((a,b) => f[b]-f[a]);
-            let hS = [4,5,6].sort((a,b) => f[b]-f[a]);
-            currentPrediction = { low: [lS[0], lS[2]], high: [hS[0], hS[2]] };
-        }
-        if(bank > peak) peak = bank;
         updateUI(n);
     }
 
     function updateUI(n) {
         document.getElementById('dispBank').innerText = Math.floor(bank);
         document.getElementById('dispProfit').innerText = Math.floor(bank - startBank);
-        document.getElementById('dispUnits').innerText = `${uL} | ${uH}`;
+        document.getElementById('dispUnits').innerText = `${unitLow} | ${unitHigh}`;
         document.getElementById('dispPeak').innerText = Math.floor(peak);
         
-        document.querySelectorAll('.physical-chip').forEach(c => c.remove());
-        if(currentPrediction) {
-            const draw = (ds, val, type) => {
-                const chip = document.createElement('div');
-                chip.className = `physical-chip ${type === 'l' ? 'chip-low' : 'chip-high'}`;
-                chip.innerText = val * base;
-                chip.style.gridColumn = (ds - 1) * 2 + 2; 
-                chip.style.gridRow = 3; 
-                grid.appendChild(chip);
-            };
-            currentPrediction.low.forEach(d => draw(d, uL, 'l'));
-            currentPrediction.high.forEach(d => draw(d, uH, 'h'));
-            document.getElementById('advice').innerText = "Bet placed on highlighted Double Streets";
-        }
         if(n !== undefined) {
-            document.getElementById('log').innerHTML = `<div>Spin: ${n} | Bank: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
+            document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b>${n}</b></div>` + document.getElementById('log').innerHTML;
         }
     }
 </script>
