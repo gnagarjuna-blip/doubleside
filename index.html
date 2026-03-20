@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Sector Corner Tracker v5.0</title>
+    <title>Roulette Double Street Tracker v5.2</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
@@ -27,7 +27,7 @@
         .action-btns { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
         .btn { 
             flex: 1 1 100px; padding: 14px 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
-            transition: transform 0.1s; font-size: 0.9rem; text-transform: uppercase;
+            font-size: 0.9rem; text-transform: uppercase;
         }
         .btn-start { background: var(--gold); color: #000; flex: 2 1 200px; }
         .btn-undo { background: #e67e22; color: white; }
@@ -58,19 +58,20 @@
         .r { background: var(--red); }
         .b { background: var(--black); }
 
-        /* PHYSICAL CHIP POSITIONED ON LINE */
+        /* CASINO STYLE DOUBLE STREET PLACEMENT */
         .physical-chip {
-            position: absolute; width: 34px; height: 34px; border-radius: 50%;
+            position: absolute; width: 38px; height: 38px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.75rem; font-weight: 900; z-index: 100;
-            transform: translate(-50%, -50%); /* Centers chip on the line intersection */
-            border: 2px solid rgba(0,0,0,0.5);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            font-size: 0.8rem; font-weight: 900; z-index: 100;
+            /* Placed on the vertical line between the 2 streets and on the bottom horizontal line */
+            transform: translate(-50%, 50%); 
+            border: 3px dashed rgba(255,255,255,0.6);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
             pointer-events: none;
         }
         .chip-low { background: #c0392b; color: white; } 
         .chip-high { background: #2980b9; color: white; } 
-        .chip-vacant { background: #ffeb3b; color: #000; border: 2px solid #555; }
+        .chip-vacant { background: #ffeb3b; color: #000; border: 3px dashed #333; }
 
         .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
         .log { height: 120px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
@@ -99,13 +100,13 @@
     <div class="stats">
         <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
         <div class="stat-card">P/L<div id="dispProfit">0</div></div>
-        <div class="stat-card">Orig Unit (L|H)<div id="dispUnits">1 | 1</div></div>
-        <div class="stat-card">Vacant Unit (L|H)<div id="dispVacant">1 | 1</div></div>
+        <div class="stat-card">Orig Units<div id="dispUnits">1 | 1</div></div>
+        <div class="stat-card">Vacant Units<div id="dispVacant">1 | 1</div></div>
     </div>
 
     <div id="simUI" class="panel" style="display:none;">
-        <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4..." style="width:100%; height:60px;"></textarea>
-        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:10px; cursor:pointer;">RUN SIM</button>
+        <textarea id="bulk" placeholder="Enter numbers separated by space or comma..." style="width:100%; height:60px;"></textarea>
+        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:10px; cursor:pointer; font-weight:bold;">RUN SIMULATION</button>
     </div>
 
     <div id="manualUI" class="table-scroll-container">
@@ -116,7 +117,7 @@
 
     <div id="dashboard" style="display:none;">
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:8px; background:#444; border-radius:5px;">Enter 18 spins to start.</div>
+            <div id="advice" style="text-align:center; font-weight:bold; padding:10px; background:#444; border-radius:5px; color:var(--gold);">Waiting for 18 numbers...</div>
             <div id="log" class="log" style="margin-top:10px;"></div>
         </div>
     </div>
@@ -130,7 +131,7 @@
     let currentPrediction = null;
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-    // Build Table
+    // Build Table Layout
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3);
         let row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
@@ -158,7 +159,7 @@
         updateUI();
     }
 
-    function resetAll() { if(confirm("Reset?")) location.reload(); }
+    function resetAll() { if(confirm("Clear session?")) location.reload(); }
 
     function startSession() {
         startBank = parseFloat(document.getElementById('inBank').value) || 1000;
@@ -174,18 +175,24 @@
         if(!active) return;
         saveState();
         if(currentPrediction) {
-            // Bet deduction
+            // Deduct Bets (4 Original + 2 Vacant)
             bank -= (base * unitLow * 2) + (base * unitHigh * 2) + (base * vUnitLow) + (base * vUnitHigh);
             let ds = Math.ceil(n / 6);
             
-            // --- ORIGINAL (+1 Loss / -2 Win) ---
-            if(n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds)) { bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2); }
-            else if (n > 0 && n <= 18) { unitLow += 1; }
+            // --- ORIGINAL LOGIC (+1 unit per 1 loss / -2 units win) ---
+            if(n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds)) { 
+                bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2); 
+            } else if (n > 0 && n <= 18) { 
+                unitLow += 1; 
+            }
 
-            if(n >= 19 && currentPrediction.highSide.includes(ds)) { bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); }
-            else if (n >= 19) { unitHigh += 1; }
+            if(n >= 19 && currentPrediction.highSide.includes(ds)) { 
+                bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); 
+            } else if (n >= 19) { 
+                unitHigh += 1; 
+            }
 
-            // --- VACANT (+1 every 2 Losses / -2 Win) ---
+            // --- VACANT LOGIC (+1 unit per 2 losses / -2 units win) ---
             if(n > 0 && n <= 18 && currentPrediction.lowVacant === ds) {
                 bank += (base * vUnitLow * 6); vUnitLow = Math.max(1, vUnitLow - 2); vLossLow = 0;
             } else if (n > 0) {
@@ -224,26 +231,31 @@
         document.querySelectorAll('.physical-chip').forEach(c => c.remove());
         
         if(currentPrediction) {
-            const placeCorner = (ds, val, type) => {
-                // ds 1: cols 2-3 (line at col 2 start)
-                // ds 2: cols 4-5 (line at col 4 start)
-                // Each double street starts at col: (ds-1)*2 + 2
-                const startCol = (ds - 1) * 2 + 2;
+            const placeDoubleStreet = (ds, val, type) => {
+                // Correct vertical line position for Double Street (between two streets)
+                // ds 1 (1-6) -> line between 3 and 4 (column 2 line)
+                // ds 2 (7-12) -> line between 9 and 10 (column 4 line)
+                const startCol = (ds - 1) * 2 + 2; 
                 const chip = document.createElement('div');
                 chip.className = `physical-chip chip-${type}`;
                 chip.innerText = base * val;
                 
-                // Position on the grid line (the corner of the double street)
+                // Positioned on the T-junction (outer bottom line of the numbers)
                 chip.style.gridColumn = startCol; 
-                chip.style.gridRow = type === 'vacant' ? 2 : (type === 'low' ? 1 : 3);
+                chip.style.gridRow = 3; 
                 
+                // Shift vacant chips slightly so they don't overlap if they share a line
+                if (type === 'vacant') chip.style.marginTop = "15px";
+
                 document.getElementById('grid').appendChild(chip);
             };
 
-            currentPrediction.lowSide.forEach(ds => placeCorner(ds, unitLow, 'low'));
-            currentPrediction.highSide.forEach(ds => placeCorner(ds, unitHigh, 'high'));
-            placeCorner(currentPrediction.lowVacant, vUnitLow, 'vacant');
-            placeCorner(currentPrediction.highVacant, vUnitHigh, 'vacant');
+            currentPrediction.lowSide.forEach(ds => placeDoubleStreet(ds, unitLow, 'low'));
+            currentPrediction.highSide.forEach(ds => placeDoubleStreet(ds, unitHigh, 'high'));
+            placeDoubleStreet(currentPrediction.lowVacant, vUnitLow, 'vacant');
+            placeDoubleStreet(currentPrediction.highVacant, vUnitHigh, 'vacant');
+            
+            document.getElementById('advice').innerText = "BETS ACTIVE (YELLOW = VACANT)";
         }
 
         if(n !== undefined) {
@@ -255,7 +267,7 @@
     function runSim() {
         const raw = document.getElementById('bulk').value;
         const data = raw.split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 36);
-        if(data.length === 0) return alert("Enter numbers");
+        if(data.length === 0) return alert("Please enter valid numbers");
         startSession();
         data.forEach(n => press(n));
     }
