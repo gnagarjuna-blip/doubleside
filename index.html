@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Sector Progression Tracker v4.2</title>
+    <title>Roulette Sector Progression Tracker v4.5</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
             --gold: #ffc107; --blue: #2196f3; --cell-h: 50px;
+            --vacant-yellow: #ffeb3b;
         }
         
         body { 
@@ -37,7 +38,7 @@
         .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
         @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
         .stat-card { background: #34495e; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
-        .stat-card div { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
+        .stat-card div { font-size: 1.1rem; color: var(--gold); font-weight: bold; }
 
         .table-scroll-container {
             overflow-x: auto; background: var(--green); padding: 30px 20px 60px 20px; 
@@ -61,14 +62,16 @@
         .b { background: var(--black); }
 
         .physical-chip {
-            position: absolute; width: 42px; height: 42px; border-radius: 50%;
+            position: absolute; width: 36px; height: 36px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.85rem; font-weight: 900; color: #000; z-index: 50;
-            transform: translate(-50%, -50%); border: 3px dashed #333;
-            background: #ffeb3b; /* Yellow Chips */
-            box-shadow: 0 4px 0 #bcab00, 0 6px 10px rgba(0,0,0,0.6);
+            font-size: 0.75rem; font-weight: 900; color: white; z-index: 50;
+            transform: translate(-50%, -50%); border: 3px dashed rgba(255,255,255,0.5);
+            text-shadow: 1px 1px 2px #000; box-shadow: 0 3px 0 #222;
             pointer-events: none;
         }
+        .chip-low { background: #c0392b; } 
+        .chip-high { background: #2980b9; } 
+        .chip-vacant { background: var(--vacant-yellow); color: #000; text-shadow: none; border-color: #444; }
 
         .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
         .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
@@ -81,7 +84,7 @@
 <div class="container">
     <div class="header">
         <div class="input-group"><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
-        <div class="input-group"><label>Unit Value</label><input type="number" id="inUnit" value="5"></div>
+        <div class="input-group"><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
         <div class="input-group">
             <label>Mode</label>
             <select id="mode" onchange="toggleMode()">
@@ -99,14 +102,13 @@
     <div class="stats">
         <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
         <div class="stat-card">Profit/Loss<div id="dispProfit">0</div></div>
-        <div class="stat-card">Next Units (L|H)<div id="dispUnits">1 | 1</div></div>
-        <div class="stat-card">Peak<div id="dispPeak">0</div></div>
+        <div class="stat-card">Orig (L|H)<div id="dispUnits">1 | 1</div></div>
+        <div class="stat-card">Vacant (L|H)<div id="dispVacant">1 | 1</div></div>
     </div>
 
     <div id="simUI" class="panel hidden">
-        <label>Paste Numbers:</label>
         <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4..."></textarea>
-        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:15px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 1rem;">RUN BULK SIMULATION</button>
+        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:15px; border-radius:4px; font-weight:bold; cursor:pointer;">RUN SIMULATION</button>
     </div>
 
     <div id="manualUI" class="table-scroll-container">
@@ -117,9 +119,7 @@
 
     <div id="dashboard" style="display:none;">
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px; font-size: 1rem;">
-                Enter 18 numbers to detect vacant sectors.
-            </div>
+            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px;">Enter 18 numbers.</div>
             <div id="log" class="log" style="margin-top:10px;"></div>
         </div>
     </div>
@@ -128,11 +128,12 @@
 <script>
     let bank, startBank, peak, history = [], stateStack = [], base, active = false;
     let unitLow = 1, unitHigh = 1;
+    let vUnitLow = 1, vUnitHigh = 1;
+    let vLossLow = 0, vLossHigh = 0; // Track consecutive losses for Vacant spots
     let currentPrediction = null;
     const dsMap = { 1: [1,6], 2: [7,12], 3: [13,18], 4: [19,24], 5: [25,30], 6: [31,36] };
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-    // Build Table
     const grid = document.getElementById('grid');
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3);
@@ -152,60 +153,65 @@
     }
 
     function saveState() {
-        stateStack.push(JSON.stringify({bank, peak, history: [...history], unitLow, unitHigh, currentPrediction}));
-        if(stateStack.length > 50) stateStack.shift();
+        stateStack.push(JSON.stringify({bank, peak, history: [...history], unitLow, unitHigh, vUnitLow, vUnitHigh, vLossLow, vLossHigh, currentPrediction}));
     }
 
     function undo() {
         if(stateStack.length === 0) return;
         const s = JSON.parse(stateStack.pop());
-        bank = s.bank; peak = s.peak; history = s.history; unitLow = s.unitLow; 
-        unitHigh = s.unitHigh; currentPrediction = s.currentPrediction;
+        Object.assign(window, s);
         updateUI();
     }
 
-    function resetAll() { if(confirm("Reset everything?")) location.reload(); }
+    function resetAll() { if(confirm("Reset?")) location.reload(); }
 
     function startSession() {
         startBank = parseFloat(document.getElementById('inBank').value) || 1000;
         bank = startBank;
         base = parseFloat(document.getElementById('inUnit').value) || 5;
-        peak = bank; history = []; unitLow = 1; unitHigh = 1; active = true; 
-        currentPrediction = null; stateStack = [];
+        peak = bank; history = []; unitLow = 1; unitHigh = 1; vUnitLow = 1; vUnitHigh = 1;
+        vLossLow = 0; vLossHigh = 0; active = true; currentPrediction = null;
         document.getElementById('dashboard').style.display = 'block';
-        document.getElementById('log').innerHTML = "";
         updateUI();
     }
 
     function press(n) {
         if(!active) return;
         saveState();
-        
         if(currentPrediction) {
-            // Deduct total bet: 2 streets low * unitLow + 2 streets high * unitHigh
-            const totalBet = (base * unitLow * 2) + (base * unitHigh * 2);
-            bank -= totalBet;
-
+            // Deduct Bets (4 Original + 2 Vacant)
+            bank -= (base * unitLow * 2) + (base * unitHigh * 2) + (base * vUnitLow) + (base * vUnitHigh);
+            
             let ds = Math.ceil(n / 6);
-            let winLow = (n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds));
-            let winHigh = (n >= 19 && n <= 36 && currentPrediction.highSide.includes(ds));
+            
+            // --- ORIGINAL LOGIC ---
+            if(n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds)) { bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2); }
+            else if (n > 0 && n <= 18) { unitLow += 1; }
 
-            // PROGRESSION: Win = -2 units, Loss = +1 unit
-            if(winLow) { 
-                bank += (base * unitLow * 6); 
-                unitLow = Math.max(1, unitLow - 2); 
-            } else { 
-                unitLow += 1; 
+            if(n >= 19 && currentPrediction.highSide.includes(ds)) { bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); }
+            else if (n >= 19) { unitHigh += 1; }
+
+            // --- VACANT LOGIC (Yellow) ---
+            // Low Vacant
+            if(n > 0 && n <= 18 && currentPrediction.lowVacant === ds) {
+                bank += (base * vUnitLow * 6);
+                vUnitLow = Math.max(1, vUnitLow - 2);
+                vLossLow = 0;
+            } else if (n > 0) {
+                vLossLow++;
+                if(vLossLow >= 2) { vUnitLow += 1; vLossLow = 0; }
             }
 
-            if(winHigh) { 
-                bank += (base * unitHigh * 6); 
-                unitHigh = Math.max(1, unitHigh - 2); 
-            } else { 
-                unitHigh += 1; 
+            // High Vacant
+            if(n >= 19 && currentPrediction.highVacant === ds) {
+                bank += (base * vUnitHigh * 6);
+                vUnitHigh = Math.max(1, vUnitHigh - 2);
+                vLossHigh = 0;
+            } else if (n > 0) {
+                vLossHigh++;
+                if(vLossHigh >= 2) { vUnitHigh += 1; vLossHigh = 0; }
             }
         }
-
         history.push(n);
         currentPrediction = history.length >= 18 ? generatePrediction() : null;
         updateUI(n);
@@ -214,16 +220,18 @@
     function generatePrediction() {
         const last18 = history.slice(-18);
         const freq = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
-        last18.forEach(n => { if(n > 0) freq[Math.ceil(n/6)]++; });
+        last18.forEach(n => { if(n>0) freq[Math.ceil(n/6)]++; });
         
-        // Find 2 most vacant (least frequent) in Low Side (1,2,3)
-        const lowSectors = [1, 2, 3].sort((a, b) => freq[a] - freq[b]);
-        // Find 2 most vacant (least frequent) in High Side (4,5,6)
-        const highSectors = [4, 5, 6].sort((a, b) => freq[a] - freq[b]);
-
+        const lowSet = [1,2,3].sort((a,b) => freq[b] - freq[a]);
+        const highSet = [4,5,6].sort((a,b) => freq[b] - freq[a]);
+        
+        // Original: Best & Worst (1st & 3rd). Vacant: The "Middle" or least frequent not in original set? 
+        // Based on your prompt: 1st and 3rd are Low Side, Vacant is the 2nd (the one left out).
         return { 
-            lowSide: [lowSectors[0], lowSectors[1]], 
-            highSide: [highSectors[0], highSectors[1]] 
+            lowSide: [lowSet[0], lowSet[2]], 
+            highSide: [highSet[0], highSet[2]],
+            lowVacant: lowSet[1], 
+            highVacant: highSet[1]
         };
     }
 
@@ -231,30 +239,30 @@
         document.getElementById('dispBank').innerText = Math.floor(bank);
         document.getElementById('dispProfit').innerText = Math.floor(bank - startBank);
         document.getElementById('dispUnits').innerText = `${unitLow} | ${unitHigh}`;
-        if(bank > peak) peak = bank;
-        document.getElementById('dispPeak').innerText = Math.floor(peak);
+        document.getElementById('dispVacant').innerText = `${vUnitLow} | ${vUnitHigh}`;
 
         document.querySelectorAll('.physical-chip').forEach(c => c.remove());
         
         if(currentPrediction) {
-            const place = (ds, val) => {
-                const targetCol = Math.ceil(dsMap[ds][1] / 3) + 1;
+            const place = (ds, val, type) => {
+                const targetCol = Math.ceil(dsMap[ds][0] / 3) + 2;
                 const chip = document.createElement('div');
-                chip.className = `physical-chip`;
-                // Display total value on that street
+                chip.className = `physical-chip chip-${type}`;
                 chip.innerText = base * val;
                 chip.style.gridColumn = targetCol;
-                chip.style.gridRow = 4; // Bottom of grid
+                chip.style.gridRow = type === 'vacant' ? 2 : (type === 'low' ? 1 : 3);
                 grid.appendChild(chip);
             };
-            currentPrediction.lowSide.forEach(ds => place(ds, unitLow));
-            currentPrediction.highSide.forEach(ds => place(ds, unitHigh));
-            document.getElementById('advice').innerText = "VACANT SECTORS TARGETED (YELLOW CHIPS)";
-            document.getElementById('advice').style.background = "#fbc02d";
-            document.getElementById('advice').style.color = "#000";
+            currentPrediction.lowSide.forEach(ds => place(ds, unitLow, 'low'));
+            currentPrediction.highSide.forEach(ds => place(ds, unitHigh, 'high'));
+            place(currentPrediction.lowVacant, vUnitLow, 'vacant');
+            place(currentPrediction.highVacant, vUnitHigh, 'vacant');
+            
+            document.getElementById('advice').innerText = "BETS PLACED (RED/BLUE = ORIG, YELLOW = VACANT)";
+            document.getElementById('advice').style.background = "var(--blue)";
         }
 
-        if(n !== undefined && n !== null) {
+        if(n !== undefined) {
             const color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
             document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b style="color:${color}">${n}</b> | Bank: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
         }
