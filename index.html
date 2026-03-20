@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Strategy Pro v6.0</title>
+    <title>Roulette Cross-Progression Tracker v7.0</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
@@ -41,7 +41,6 @@
         .table-scroll-container {
             overflow-x: auto; background: var(--green); padding: 40px 20px 80px 20px; 
             border: 4px solid #3e2723; border-radius: 12px; position: relative;
-            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
         }
 
         .roulette-grid { 
@@ -59,12 +58,11 @@
         .r { background: var(--red); }
         .b { background: var(--black); }
 
-        /* CASINO STYLE DOUBLE STREET CHIP */
         .physical-chip {
             position: absolute; width: 40px; height: 40px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             font-size: 0.85rem; font-weight: 900; z-index: 100;
-            transform: translate(-50%, 50%); /* Centered on the line intersection */
+            transform: translate(-50%, 50%); 
             border: 3px dashed rgba(255,255,255,0.5);
             box-shadow: 0 4px 8px rgba(0,0,0,0.6);
             pointer-events: none;
@@ -84,10 +82,10 @@
         <div class="input-group"><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
         <div class="input-group"><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
         <div class="input-group">
-            <label>Strategy</label>
+            <label>Strategy Mode</label>
             <select id="strategyType" onchange="updateUI()">
-                <option value="original">Original (1st & 3rd)</option>
-                <option value="vacant">Vacant (2nd)</option>
+                <option value="original">Original (Linked Progression)</option>
+                <option value="vacant">Vacant (2-Loss Progression)</option>
             </select>
         </div>
         <div class="action-btns">
@@ -100,8 +98,8 @@
     <div class="stats">
         <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
         <div class="stat-card">P/L<div id="dispProfit">0</div></div>
-        <div class="stat-card">Low Unit<div id="dispLow">1</div></div>
-        <div class="stat-card">High Unit<div id="dispHigh">1</div></div>
+        <div class="stat-card">Low Units<div id="dispLow">1</div></div>
+        <div class="stat-card">High Units<div id="dispHigh">1</div></div>
     </div>
 
     <div id="manualUI" class="table-scroll-container">
@@ -112,7 +110,7 @@
 
     <div id="dashboard" style="display:none;">
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:10px; background:#444; border-radius:5px; color:var(--gold);">Waiting for 18 spins...</div>
+            <div id="advice" style="text-align:center; font-weight:bold; padding:10px; background:#444; border-radius:5px; color:var(--gold);">Waiting for 18 spins to detect frequency...</div>
             <div id="log" class="log" style="margin-top:10px;"></div>
         </div>
     </div>
@@ -121,10 +119,11 @@
 <script>
     let bank, startBank, history = [], stateStack = [], base, active = false;
     let uLow = 1, uHigh = 1;
-    let lossCountLow = 0, lossCountHigh = 0;
+    let vLossCountLow = 0, vLossCountHigh = 0;
     let currentPrediction = null;
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
+    // Build Table
     for (let i = 1; i <= 36; i++) {
         let col = Math.ceil(i / 3);
         let row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
@@ -136,7 +135,7 @@
     }
 
     function saveState() {
-        stateStack.push(JSON.stringify({bank, history: [...history], uLow, uHigh, lossCountLow, lossCountHigh, currentPrediction}));
+        stateStack.push(JSON.stringify({bank, history: [...history], uLow, uHigh, vLossCountLow, vLossCountHigh, currentPrediction}));
     }
 
     function undo() {
@@ -146,13 +145,13 @@
         updateUI();
     }
 
-    function resetAll() { if(confirm("Clear session?")) location.reload(); }
+    function resetAll() { if(confirm("Reset session?")) location.reload(); }
 
     function startSession() {
         startBank = parseFloat(document.getElementById('inBank').value) || 1000;
         bank = startBank;
         base = parseFloat(document.getElementById('inUnit').value) || 5;
-        history = []; uLow = 1; uHigh = 1; lossCountLow = 0; lossCountHigh = 0;
+        history = []; uLow = 1; uHigh = 1; vLossCountLow = 0; vLossCountHigh = 0;
         active = true; currentPrediction = null;
         document.getElementById('dashboard').style.display = 'block';
         updateUI();
@@ -164,47 +163,47 @@
         const mode = document.getElementById('strategyType').value;
 
         if(currentPrediction) {
-            // Bet count: Original bets on 2 streets per side (4 total), Vacant on 1 street per side (2 total)
-            const multiplier = mode === 'original' ? 2 : 1;
-            bank -= (base * uLow * multiplier) + (base * uHigh * multiplier);
+            const betMultiplier = mode === 'original' ? 2 : 1;
+            bank -= (base * uLow * betMultiplier) + (base * uHigh * betMultiplier);
 
             let ds = Math.ceil(n / 6);
-            let winLow = false, winHigh = false;
+            let hitLow = false;
+            let hitHigh = false;
 
             if (mode === 'original') {
-                winLow = (n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds));
-                winHigh = (n >= 19 && currentPrediction.highSide.includes(ds));
-            } else {
-                winLow = (n > 0 && n <= 18 && currentPrediction.lowVacant === ds);
-                winHigh = (n >= 19 && currentPrediction.highVacant === ds);
-            }
-
-            // --- PROGRESSION LOGIC ---
-            // LOW SIDE
-            if (winLow) {
-                bank += (base * uLow * 6);
-                uLow = Math.max(1, uLow - 2);
-                lossCountLow = 0;
-            } else if (n > 0) {
-                if (mode === 'original') {
-                    uLow += 1; // +1 on every 1 loss
-                } else {
-                    lossCountLow++; // +1 on every 2 losses
-                    if (lossCountLow >= 2) { uLow += 1; lossCountLow = 0; }
+                hitLow = (n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds));
+                hitHigh = (n >= 19 && currentPrediction.highSide.includes(ds));
+                
+                // --- ORIGINAL CROSS-PROGRESION ---
+                if (hitLow) {
+                    bank += (base * uLow * 6);
+                    uHigh = Math.max(1, uHigh - 2); // Win on Low side, decrease High side units
+                } else if (n > 0) {
+                    uLow += 1; // Loss on Low side, increase Low units
                 }
-            }
 
-            // HIGH SIDE
-            if (winHigh) {
-                bank += (base * uHigh * 6);
-                uHigh = Math.max(1, uHigh - 2);
-                lossCountHigh = 0;
-            } else if (n > 0) {
-                if (mode === 'original') {
-                    uHigh += 1; // +1 on every 1 loss
-                } else {
-                    lossCountHigh++; // +1 on every 2 losses
-                    if (lossCountHigh >= 2) { uHigh += 1; lossCountHigh = 0; }
+                if (hitHigh) {
+                    bank += (base * uHigh * 6);
+                    uLow = Math.max(1, uLow - 2); // Win on High side, decrease Low side units
+                } else if (n > 0) {
+                    uHigh += 1; // Loss on High side, increase High units
+                }
+
+            } else {
+                hitLow = (n > 0 && n <= 18 && currentPrediction.lowVacant === ds);
+                hitHigh = (n >= 19 && n <= 36 && currentPrediction.highVacant === ds);
+
+                // --- VACANT 2-LOSS PROGRESSION ---
+                if (hitLow) {
+                    bank += (base * uLow * 6); uLow = Math.max(1, uLow - 2); vLossCountLow = 0;
+                } else if (n > 0) {
+                    vLossCountLow++; if (vLossCountLow >= 2) { uLow += 1; vLossCountLow = 0; }
+                }
+
+                if (hitHigh) {
+                    bank += (base * uHigh * 6); uHigh = Math.max(1, uHigh - 2); vLossCountHigh = 0;
+                } else if (n > 0) {
+                    vLossCountHigh++; if (vLossCountHigh >= 2) { uHigh += 1; vLossCountHigh = 0; }
                 }
             }
         }
@@ -238,7 +237,7 @@
         const mode = document.getElementById('strategyType').value;
 
         if(currentPrediction) {
-            const placeChip = (ds, val, isVacant) => {
+            const place = (ds, val, isVacant) => {
                 const startCol = (ds - 1) * 2 + 2; 
                 const chip = document.createElement('div');
                 chip.className = `physical-chip ${isVacant ? 'chip-vacant' : (ds <= 3 ? 'chip-orig-low' : 'chip-orig-high')}`;
@@ -249,19 +248,19 @@
             };
 
             if (mode === 'original') {
-                currentPrediction.lowSide.forEach(ds => placeChip(ds, uLow, false));
-                currentPrediction.highSide.forEach(ds => placeChip(ds, uHigh, false));
-                document.getElementById('advice').innerText = "ORIGINAL STRATEGY (1st & 3rd)";
+                currentPrediction.lowSide.forEach(ds => place(ds, uLow, false));
+                currentPrediction.highSide.forEach(ds => place(ds, uHigh, false));
+                document.getElementById('advice').innerText = "ORIGINAL: CROSS-LINKED PROGRESSION";
             } else {
-                placeChip(currentPrediction.lowVacant, uLow, true);
-                placeChip(currentPrediction.highVacant, uHigh, true);
-                document.getElementById('advice').innerText = "VACANT STRATEGY (2nd)";
+                place(currentPrediction.lowVacant, uLow, true);
+                place(currentPrediction.highVacant, uHigh, true);
+                document.getElementById('advice').innerText = "VACANT: 2-LOSS PROGRESSION";
             }
         }
 
         if(n !== undefined) {
             const color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
-            document.getElementById('log').innerHTML = `<div>Spin: <b style="color:${color}">${n}</b> | Bal: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
+            document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b style="color:${color}">${n}</b> | Bal: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
         }
     }
 </script>
