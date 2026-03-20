@@ -1,253 +1,365 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Cross-Progression Tracker v7.1</title>
+
+    <title>Roulette Sector Progression Tracker v4.1</title>
+
     <style>
+
         :root { 
+
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
+
             --gold: #ffc107; --blue: #2196f3; --cell-h: 50px;
+
         }
+
         
+
         body { 
+
             font-family: 'Segoe UI', sans-serif; background: #121212; color: white; margin: 0; padding: 10px; 
+
             touch-action: manipulation;
+
         }
+
+
 
         .container { max-width: 1000px; margin: auto; }
 
+
+
+        /* RESPONSIVE HEADER */
+
         .header { 
+
             display: flex; flex-wrap: wrap; gap: 10px; 
+
             background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-bottom: 4px solid var(--gold);
+
         }
+
         .header .input-group { flex: 1 1 140px; display: flex; flex-direction: column; font-size: 0.85rem; }
+
         .header input, .header select { padding: 10px; border-radius: 4px; border: none; margin-top: 5px; background: #eee; font-weight: bold; font-size: 1rem; }
+
         
+
+        /* RESPONSIVE BUTTONS */
+
         .action-btns { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
+
         .btn { 
-            flex: 1 1 100px; padding: 14px 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
-            transition: transform 0.1s; font-size: 0.9rem; text-transform: uppercase;
+
+            flex: 1 1 100px; /* Allows buttons to grow and shrink, stacking if needed */
+
+            padding: 14px 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
+
+            transition: transform 0.1s, opacity 0.2s; font-size: 0.9rem; text-transform: uppercase;
+
         }
-        .btn-start { background: var(--gold); color: #000; flex: 2 1 200px; }
+
+        .btn:active { transform: scale(0.95); }
+
+        .btn-start { background: var(--gold); color: #000; flex: 2 1 200px; } /* Start button is more prominent */
+
         .btn-undo { background: #e67e22; color: white; }
+
         .btn-reset { background: #7f8c8d; color: white; }
 
+
+
+        /* STATS */
+
         .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
+
         @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+
         .stat-card { background: #34495e; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
+
         .stat-card div { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
 
+
+
+        /* THE BOARD */
+
         .table-scroll-container {
+
             overflow-x: auto; background: var(--green); padding: 30px 20px 60px 20px; 
+
             border: 4px solid #3e2723; border-radius: 12px; position: relative;
+
             box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+
         }
+
+
 
         .roulette-grid { 
+
             display: grid; grid-template-columns: 60px repeat(12, 1fr); 
+
             gap: 2px; position: relative; min-width: 750px; 
+
         }
+
+
 
         .cell { 
+
             height: var(--cell-h); display: flex; align-items: center; 
+
             justify-content: center; font-weight: bold; cursor: pointer; 
+
             border: 1px solid rgba(255,255,255,0.2); font-size: 1.1rem;
+
         }
+
+
 
         .zero { grid-row: span 3; background: var(--green); border: 2px solid white; }
+
         .r { background: var(--red); }
+
         .b { background: var(--black); }
 
+
+
+        /* PHYSICAL CHIPS */
+
         .physical-chip {
+
             position: absolute; width: 38px; height: 38px; border-radius: 50%;
+
             display: flex; align-items: center; justify-content: center;
+
             font-size: 0.8rem; font-weight: 900; color: white; z-index: 50;
-            transform: translate(-50%, 50%); border: 3px dashed rgba(255,255,255,0.5);
-            text-shadow: 1px 1px 2px #000; box-shadow: 0 4px 0 #222;
+
+            transform: translate(-50%, -50%); border: 4px dashed rgba(255,255,255,0.5);
+
+            text-shadow: 1px 1px 2px #000; box-shadow: 0 4px 0 #222, 0 6px 10px rgba(0,0,0,0.6);
+
             pointer-events: none;
+
         }
+
         .chip-low { background: #c0392b; } 
+
         .chip-high { background: #2980b9; } 
-        .chip-vacant { background: #ffeb3b; color: #000; text-shadow: none; border-color: #333; }
+
+
 
         .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
+
         .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; font-family: monospace; border-radius: 4px; font-size: 0.9rem; }
+
         .hidden { display: none; }
+
+        textarea { width: 100%; height: 80px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; margin-top: 10px; box-sizing: border-box; font-size: 1rem; }
+
     </style>
+
 </head>
+
 <body>
 
+
+
 <div class="container">
+
     <div class="header">
+
         <div class="input-group"><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
+
         <div class="input-group"><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
+
         <div class="input-group">
-            <label>Strategy Mode</label>
-            <select id="strategyType" onchange="updateUI()">
-                <option value="original">Original (Cross-Linked)</option>
-                <option value="vacant">Vacant (2-Loss Rule)</option>
+
+            <label>Mode</label>
+
+            <select id="mode" onchange="toggleMode()">
+
+                <option value="manual">Manual Entry</option>
+
+                <option value="sim">Simulation</option>
+
             </select>
+
         </div>
+
         <div class="action-btns">
+
             <button class="btn btn-start" onclick="startSession()">Start Session</button>
+
             <button class="btn btn-undo" onclick="undo()">Undo</button>
+
             <button class="btn btn-reset" onclick="resetAll()">Reset</button>
+
         </div>
+
     </div>
+
+
 
     <div class="stats">
+
         <div class="stat-card">Bankroll<div id="dispBank">0</div></div>
+
         <div class="stat-card">Profit/Loss<div id="dispProfit">0</div></div>
+
         <div class="stat-card">Units (L|H)<div id="dispUnits">1 | 1</div></div>
+
         <div class="stat-card">Peak<div id="dispPeak">0</div></div>
+
     </div>
+
+
+
+    <div id="simUI" class="panel hidden">
+
+        <label>Paste Numbers (Comma or Space separated):</label>
+
+        <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4..."></textarea>
+
+        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:15px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 1rem;">RUN BULK SIMULATION</button>
+
+    </div>
+
+
 
     <div id="manualUI" class="table-scroll-container">
+
         <div class="roulette-grid" id="grid">
+
             <div class="cell zero" onclick="press(0)" id="cell-0">0</div>
+
         </div>
+
     </div>
+
+
 
     <div id="dashboard" style="display:none;">
+
         <div class="panel">
-            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px;">Enter 18 numbers.</div>
+
+            <div id="advice" style="text-align:center; font-weight:bold; padding:12px; background:#444; border-radius:5px; font-size: 1rem;">
+
+                Enter 18 numbers to generate prediction.
+
+            </div>
+
             <div id="log" class="log" style="margin-top:10px;"></div>
+
         </div>
+
     </div>
+
 </div>
 
+
+
 <script>
+
     let bank, startBank, peak, history = [], stateStack = [], base, active = false;
-    let uL = 1, uH = 1;
-    let vLossL = 0, vLossH = 0;
+
+    let unitLow = 1, unitHigh = 1;
+
     let currentPrediction = null;
+
+    const dsMap = { 1: [1,6], 2: [7,12], 3: [13,18], 4: [19,24], 5: [25,30], 6: [31,36] };
+
     const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
+
+
+    // Build Table Numbers
+
     const grid = document.getElementById('grid');
+
     for (let i = 1; i <= 36; i++) {
+
         let col = Math.ceil(i / 3);
+
         let row = i % 3 === 0 ? 1 : (i % 3 === 1 ? 3 : 2);
+
         let d = document.createElement('div');
+
         d.className = `cell ${reds.includes(i) ? 'r' : 'b'}`;
+
         d.id = `cell-${i}`; d.innerText = i;
+
         d.style.gridColumn = col + 1; d.style.gridRow = row;
+
         d.onclick = () => press(i);
+
         grid.appendChild(d);
+
     }
+
+
+
+    function toggleMode() {
+
+        const m = document.getElementById('mode').value;
+
+        document.getElementById('manualUI').classList.toggle('hidden', m !== 'manual');
+
+        document.getElementById('simUI').classList.toggle('hidden', m !== 'sim');
+
+    }
+
+
 
     function saveState() {
-        stateStack.push(JSON.stringify({bank, peak, history: [...history], uL, uH, vLossL, vLossH, currentPrediction}));
+
+        stateStack.push(JSON.stringify({bank, peak, history, unitLow, unitHigh, currentPrediction}));
+
         if(stateStack.length > 50) stateStack.shift();
+
     }
+
+
 
     function undo() {
+
         if(stateStack.length === 0) return;
+
         const s = JSON.parse(stateStack.pop());
-        Object.assign(window, s);
+
+        bank = s.bank; peak = s.peak; history = s.history; unitLow = s.unitLow; 
+
+        unitHigh = s.unitHigh; currentPrediction = s.currentPrediction;
+
         updateUI();
+
     }
 
-    function resetAll() { if(confirm("Reset?")) location.reload(); }
+
+
+    function resetAll() { if(confirm("Reset everything?")) location.reload(); }
+
+
 
     function startSession() {
+
         startBank = parseFloat(document.getElementById('inBank').value) || 1000;
+
         bank = startBank;
+
         base = parseFloat(document.getElementById('inUnit').value) || 5;
-        peak = bank; history = []; uL = 1; uH = 1; vLossL = 0; vLossH = 0;
-        active = true; currentPrediction = null;
+
+        peak = bank; history = []; unitLow = 1; unitHigh = 1; active = true; 
+
+        currentPrediction = null; stateStack = [];
+
         document.getElementById('dashboard').style.display = 'block';
-        updateUI();
-    }
 
-    function press(n) {
-        if(!active) return;
-        saveState();
-        const mode = document.getElementById('strategyType').value;
-
-        if(currentPrediction) {
-            const mult = mode === 'original' ? 2 : 1;
-            bank -= (base * uL * mult) + (base * uH * mult);
-            
-            let ds = Math.ceil(n / 6);
-            let hitL = false, hitH = false;
-
-            if (mode === 'original') {
-                hitL = (n > 0 && n <= 18 && currentPrediction.lowSide.includes(ds));
-                hitH = (n >= 19 && currentPrediction.highSide.includes(ds));
-                
-                // ORIGINAL CROSS-LINKED LOGIC
-                if (hitL) { bank += (base * uL * 6); uH = Math.max(1, uH - 2); } 
-                else if (n > 0) { uL += 1; }
-
-                if (hitH) { bank += (base * uH * 6); uL = Math.max(1, uL - 2); } 
-                else if (n > 0) { uH += 1; }
-            } else {
-                hitL = (n > 0 && n <= 18 && currentPrediction.lowVacant === ds);
-                hitH = (n >= 19 && currentPrediction.highVacant === ds);
-
-                // VACANT 2-LOSS LOGIC
-                if (hitL) { bank += (base * uL * 6); uL = Math.max(1, uL - 2); vLossL = 0; }
-                else if (n > 0) { vLossL++; if(vLossL >= 2){ uL++; vLossL = 0; } }
-
-                if (hitH) { bank += (base * uH * 6); uH = Math.max(1, uH - 2); vLossH = 0; }
-                else if (n > 0) { vLossH++; if(vLossH >= 2){ uH++; vLossH = 0; } }
-            }
-        }
-        history.push(n);
-        currentPrediction = history.length >= 18 ? generatePrediction() : null;
-        if(bank > peak) peak = bank;
-        updateUI(n);
-    }
-
-    function generatePrediction() {
-        const last18 = history.slice(-18);
-        const freq = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
-        last18.forEach(n => { if(n>0) freq[Math.ceil(n/6)]++; });
-        const lowSet = [1,2,3].sort((a,b) => freq[b] - freq[a]);
-        const highSet = [4,5,6].sort((a,b) => freq[b] - freq[a]);
-        return { 
-            lowSide: [lowSet[0], lowSet[2]], highSide: [highSet[0], highSet[2]],
-            lowVacant: lowSet[1], highVacant: highSet[1]
-        };
-    }
-
-    function updateUI(n) {
-        document.getElementById('dispBank').innerText = Math.floor(bank);
-        document.getElementById('dispProfit').innerText = Math.floor(bank - startBank);
-        document.getElementById('dispUnits').innerText = `${uL} | ${uH}`;
-        document.getElementById('dispPeak').innerText = Math.floor(peak);
-
-        document.querySelectorAll('.physical-chip').forEach(c => c.remove());
-        const mode = document.getElementById('strategyType').value;
-
-        if(currentPrediction) {
-            const place = (ds, val, type) => {
-                const startCol = (ds - 1) * 2 + 2; 
-                const chip = document.createElement('div');
-                chip.className = `physical-chip chip-${type}`;
-                chip.innerText = base * val;
-                chip.style.gridColumn = startCol; 
-                chip.style.gridRow = 3; 
-                grid.appendChild(chip);
-            };
-
-            if (mode === 'original') {
-                currentPrediction.lowSide.forEach(ds => place(ds, uL, 'low'));
-                currentPrediction.highSide.forEach(ds => place(ds, uH, 'high'));
-                document.getElementById('advice').innerText = "ORIGINAL MODE ACTIVE";
-            } else {
-                place(currentPrediction.lowVacant, uL, 'vacant');
-                place(currentPrediction.highVacant, uH, 'vacant');
-                document.getElementById('advice').innerText = "VACANT MODE ACTIVE (YELLOW)";
-            }
-        }
-
-        if(n !== undefined) {
-            const color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
-            document.getElementById('log').innerHTML = `<div>Spin ${history.length}: <b style="color:${color}">${n}</b> | Bank: ${Math.floor(bank)}</div>` + document.getElementById('log').innerHTML;
-        }
-    }
-</script>
-</body>
-</html>
+        document.getElementById('log').innerHTML = "";
