@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Tracker iPad Fixed</title>
+    <title>Roulette Tracker Fixed Inputs</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
@@ -11,31 +11,46 @@
         }
 
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            font-family: -apple-system, sans-serif; 
             background: #121212; color: white; margin: 0; padding: 10px; 
-            touch-action: manipulation; -webkit-user-select: none;
         }
 
-        .container { max-width: 100%; margin: auto; }
+        /* Allow inputs to be selectable and editable */
+        input {
+            -webkit-user-select: text !important;
+            user-select: text !important;
+            cursor: text;
+        }
 
-        /* Stats Section */
+        .header { 
+            display: flex; flex-wrap: wrap; gap: 10px; 
+            background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 10px; 
+        }
+
+        .input-group { flex: 1 1 140px; display: flex; flex-direction: column; }
+        .input-group label { font-size: 0.8rem; margin-bottom: 4px; color: var(--gold); }
+        
+        .header input { 
+            padding: 15px; border-radius: 4px; border: 2px solid #555; 
+            background: white; color: black; font-weight: bold; font-size: 1.2rem; 
+        }
+
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 10px; }
-        .stat-card { background: #34495e; padding: 10px; border-radius: 6px; text-align: center; font-size: 0.8rem; }
+        .stat-card { background: #34495e; padding: 10px; border-radius: 6px; text-align: center; }
         .stat-card div { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
 
-        /* Table Container */
         .table-scroll-container {
             overflow-x: auto; background: var(--green); padding: 15px; 
             border: 4px solid #3e2723; border-radius: 12px;
             -webkit-overflow-scrolling: touch; margin-bottom: 10px;
         }
 
-        /* HARDCODED GRID DIMENSIONS FOR IPAD */
         .roulette-grid { 
             display: grid; 
-            grid-template-columns: 80px repeat(12, 65px); /* Fixed pixel widths */
-            grid-template-rows: 60px 60px 60px 50px; /* Fixed pixel heights */
+            grid-template-columns: 80px repeat(12, 65px);
+            grid-template-rows: 60px 60px 60px 50px;
             gap: 4px; min-width: 880px;
+            -webkit-user-select: none; /* Only disable selection on the table */
         }
 
         .cell { 
@@ -48,7 +63,6 @@
         .r { background: var(--red); }
         .b { background: var(--black); }
 
-        /* Chips */
         .physical-chip {
             width: 44px; height: 44px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
@@ -58,13 +72,26 @@
         }
         .chip-low { background: #c0392b; }
 
-        .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; border-radius: 4px; font-family: monospace; }
-        .btn { padding: 15px; border: none; border-radius: 4px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
+        .btn { padding: 18px; border: none; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 1rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div class="header">
+        <div class="input-group">
+            <label>Bankroll ($)</label>
+            <input type="number" id="inBank" value="1000" pattern="[0-9]*">
+        </div>
+        <div class="input-group">
+            <label>Base Unit ($)</label>
+            <input type="number" id="inUnit" value="5" pattern="[0-9]*">
+        </div>
+        <button class="btn" style="background:var(--gold); width:100%; margin-top:10px; color:black;" onclick="startSession()">
+            Apply & Start Session
+        </button>
+    </div>
+
     <div class="stats">
         <div class="stat-card">Bank<div id="dispBank">1000</div></div>
         <div class="stat-card">P/L<div id="dispProfit">0</div></div>
@@ -75,96 +102,103 @@
     <div class="table-scroll-container">
         <div class="roulette-grid" id="grid">
             <div class="cell zero" onclick="press(0)">0</div>
-            <div class="cell r" onclick="press(3)">3</div>
-            <div class="cell b" onclick="press(6)">6</div>
-            <div class="cell r" onclick="press(9)">9</div>
-            <div class="cell r" onclick="press(12)">12</div>
-            <div class="cell b" onclick="press(15)">15</div>
-            <div class="cell r" onclick="press(18)">18</div>
-            <div class="cell r" onclick="press(21)">21</div>
-            <div class="cell b" onclick="press(24)">24</div>
-            <div class="cell r" onclick="press(27)">27</div>
-            <div class="cell r" onclick="press(30)">30</div>
-            <div class="cell b" onclick="press(33)">33</div>
-            <div class="cell r" onclick="press(36)">36</div>
-
+            <div class="cell r" onclick="press(3)">3</div><div class="cell b" onclick="press(6)">6</div>
+            <div class="cell r" onclick="press(9)">9</div><div class="cell r" onclick="press(12)">12</div>
+            <div class="cell b" onclick="press(15)">15</div><div class="cell r" onclick="press(18)">18</div>
+            <div class="cell r" onclick="press(21)">21</div><div class="cell b" onclick="press(24)">24</div>
+            <div class="cell r" onclick="press(27)">27</div><div class="cell r" onclick="press(30)">30</div>
+            <div class="cell b" onclick="press(33)">33</div><div class="cell r" onclick="press(36)">36</div>
             <div class="cell b" onclick="press(2)" style="grid-column: 2">2</div>
-            <div class="cell r" onclick="press(5)">5</div>
-            <div class="cell b" onclick="press(8)">8</div>
-            <div class="cell b" onclick="press(11)">11</div>
-            <div class="cell r" onclick="press(14)">14</div>
-            <div class="cell b" onclick="press(17)">17</div>
-            <div class="cell b" onclick="press(20)">20</div>
-            <div class="cell r" onclick="press(23)">23</div>
-            <div class="cell b" onclick="press(26)">26</div>
-            <div class="cell b" onclick="press(29)">29</div>
-            <div class="cell r" onclick="press(32)">32</div>
+            <div class="cell r" onclick="press(5)">5</div><div class="cell b" onclick="press(8)">8</div>
+            <div class="cell b" onclick="press(11)">11</div><div class="cell r" onclick="press(14)">14</div>
+            <div class="cell b" onclick="press(17)">17</div><div class="cell b" onclick="press(20)">20</div>
+            <div class="cell r" onclick="press(23)">23</div><div class="cell b" onclick="press(26)">26</div>
+            <div class="cell b" onclick="press(29)">29</div><div class="cell r" onclick="press(32)">32</div>
             <div class="cell b" onclick="press(35)">35</div>
-
             <div class="cell r" onclick="press(1)" style="grid-column: 2">1</div>
-            <div class="cell b" onclick="press(4)">4</div>
-            <div class="cell r" onclick="press(7)">7</div>
-            <div class="cell b" onclick="press(10)">10</div>
-            <div class="cell b" onclick="press(13)">13</div>
-            <div class="cell r" onclick="press(16)">16</div>
-            <div class="cell r" onclick="press(19)">19</div>
-            <div class="cell b" onclick="press(22)">22</div>
-            <div class="cell r" onclick="press(25)">25</div>
-            <div class="cell b" onclick="press(28)">28</div>
-            <div class="cell b" onclick="press(31)">31</div>
+            <div class="cell b" onclick="press(4)">4</div><div class="cell r" onclick="press(7)">7</div>
+            <div class="cell b" onclick="press(10)">10</div><div class="cell b" onclick="press(13)">13</div>
+            <div class="cell r" onclick="press(16)">16</div><div class="cell r" onclick="press(19)">19</div>
+            <div class="cell b" onclick="press(22)">22</div><div class="cell r" onclick="press(25)">25</div>
+            <div class="cell b" onclick="press(28)">28</div><div class="cell b" onclick="press(31)">31</div>
             <div class="cell r" onclick="press(34)">34</div>
         </div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-bottom:10px;">
-        <button class="btn" style="background:var(--gold); flex:2" onclick="startSession()">Start Session</button>
+    <div id="advice" style="background:#444; padding:15px; text-align:center; border-radius:5px; font-weight:bold;">
+        Set Bank/Unit and press Start
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:10px;">
+        <button class="btn" style="background:#e67e22; flex:1" onclick="undo()">Undo</button>
         <button class="btn" style="background:#7f8c8d; flex:1" onclick="location.reload()">Reset</button>
     </div>
 
-    <div id="advice" style="background:#444; padding:15px; text-align:center; border-radius:5px; font-weight:bold;">
-        Press Start Session to Begin
-    </div>
-
-    <div id="log" class="log" style="margin-top:10px;"></div>
+    <div id="log" style="height:120px; overflow-y:auto; background:#1a1a1a; padding:10px; margin-top:10px; font-family:monospace; font-size:0.9rem;"></div>
 </div>
 
 <script>
     let bank=1000, startBank=1000, peak=1000, history=[], base=5, active=false;
     let unitLow=1, unitHigh=1, currentPrediction=null;
-    const reds=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+    let states = [];
 
     function startSession() {
+        // Read values from inputs
+        startBank = parseFloat(document.getElementById('inBank').value) || 1000;
+        base = parseFloat(document.getElementById('inUnit').value) || 5;
+        
+        bank = startBank;
+        peak = bank;
         active = true;
-        document.getElementById('advice').innerText = "Enter 18 spins for prediction";
+        
+        document.getElementById('advice').innerText = "Enter 18 spins to begin tracking";
+        document.getElementById('advice').style.background = "#444";
+        updateUI();
+    }
+
+    function saveState() {
+        states.push(JSON.stringify({bank, unitLow, unitHigh, history: [...history], currentPrediction}));
+    }
+
+    function undo() {
+        if(states.length === 0) return;
+        let s = JSON.parse(states.pop());
+        bank = s.bank; unitLow = s.unitLow; unitHigh = s.unitHigh; 
+        history = s.history; currentPrediction = s.currentPrediction;
         updateUI();
     }
 
     function press(n) {
         if(!active) return;
+        saveState();
+
         if(currentPrediction) {
             bank -= (base * unitLow * 2) + (base * unitHigh * 2);
             let ds = Math.ceil(n / 6);
+            
+            // Logic Low
             if(n > 0 && n <= 18) {
                 if(currentPrediction.lowSide.includes(ds)) { bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2); }
                 else { unitLow += 1; }
             } else { unitLow += 1; }
+
+            // Logic High
             if(n >= 19) {
                 if(currentPrediction.highSide.includes(ds)) { bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); }
                 else { unitHigh += 1; }
             } else { unitHigh += 1; }
         }
-        history.push(n);
-        currentPrediction = history.length >= 18 ? generatePrediction() : null;
-        updateUI(n);
-    }
 
-    function generatePrediction() {
-        const last18 = history.slice(-18);
-        const freq = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
-        last18.forEach(n => { if(n > 0) freq[Math.ceil(n/6)]++; });
-        const lowSet = [1,2,3].sort((a,b) => freq[b] - freq[a]);
-        const highSet = [4,5,6].sort((a,b) => freq[b] - freq[a]);
-        return { lowSide: [lowSet[0], lowSet[2]], highSide: [highSet[0], highSet[2]] };
+        history.push(n);
+        if(history.length >= 18) {
+            const last18 = history.slice(-18);
+            const freq = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0};
+            last18.forEach(x => { if(x > 0) freq[Math.ceil(x/6)]++; });
+            const lowSet = [1,2,3].sort((a,b) => freq[b] - freq[a]);
+            const highSet = [4,5,6].sort((a,b) => freq[b] - freq[a]);
+            currentPrediction = { lowSide: [lowSet[0], lowSet[2]], highSide: [highSet[0], highSet[2]] };
+        }
+        updateUI(n);
     }
 
     function updateUI(n) {
@@ -173,6 +207,7 @@
         document.getElementById('dispUnits').innerText = `${unitLow}|${unitHigh}`;
         if(bank > peak) peak = bank;
         document.getElementById('dispPeak').innerText = Math.floor(peak);
+
         document.querySelectorAll('.physical-chip').forEach(c => c.remove());
 
         if(currentPrediction) {
