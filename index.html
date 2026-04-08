@@ -3,209 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette Sector Tracker iPad</title>
+    <title>Roulette Tracker iPad Fixed</title>
     <style>
         :root { 
             --green: #1b5e20; --red: #d32f2f; --black: #1a1a1a; 
-            --gold: #ffc107; --blue: #2196f3; --cell-h: 60px; /* Slightly taller for iPad fingers */
+            --gold: #ffc107; --blue: #2196f3;
         }
 
         body { 
-            font-family: -apple-system, sans-serif; background: #121212; color: white; margin: 0; padding: 10px; 
-            touch-action: manipulation; -webkit-user-select: none; user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: #121212; color: white; margin: 0; padding: 10px; 
+            touch-action: manipulation; -webkit-user-select: none;
         }
 
         .container { max-width: 100%; margin: auto; }
 
-        .header { 
-            display: flex; flex-wrap: wrap; gap: 10px; 
-            background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-bottom: 4px solid var(--gold);
-        }
+        /* Stats Section */
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 10px; }
+        .stat-card { background: #34495e; padding: 10px; border-radius: 6px; text-align: center; font-size: 0.8rem; }
+        .stat-card div { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
 
-        .input-group { flex: 1 1 120px; display: flex; flex-direction: column; font-size: 0.85rem; }
-        .header input, .header select { padding: 12px; border-radius: 4px; border: none; margin-top: 5px; background: #eee; font-weight: bold; font-size: 1rem; -webkit-appearance: none; }
-
-        .action-btns { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .btn { 
-            flex: 1 1 100px; padding: 16px 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; 
-            transition: transform 0.1s; font-size: 0.9rem; text-transform: uppercase;
-        }
-        .btn:active { background: #555; transform: scale(0.98); }
-        .btn-start { background: var(--gold); color: #000; flex: 2 1 200px; }
-        .btn-undo { background: #e67e22; color: white; }
-        .btn-reset { background: #7f8c8d; color: white; }
-
-        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
-        @media (min-width: 768px) { .stats { grid-template-columns: repeat(4, 1fr); } }
-        .stat-card { background: #34495e; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #455a64; }
-        .stat-card div { font-size: 1.4rem; color: var(--gold); font-weight: bold; }
-
+        /* Table Container */
         .table-scroll-container {
             overflow-x: auto; background: var(--green); padding: 15px; 
-            border: 4px solid #3e2723; border-radius: 12px; position: relative;
-            box-shadow: inset 0 0 40px rgba(0,0,0,0.5); margin-bottom: 15px;
-            -webkit-overflow-scrolling: touch;
+            border: 4px solid #3e2723; border-radius: 12px;
+            -webkit-overflow-scrolling: touch; margin-bottom: 10px;
         }
 
+        /* HARDCODED GRID DIMENSIONS FOR IPAD */
         .roulette-grid { 
             display: grid; 
-            grid-template-columns: 70px repeat(12, 1fr);
-            grid-template-rows: repeat(3, var(--cell-h)) 50px; /* Force row heights */
-            gap: 3px; position: relative; min-width: 900px; /* Wider for iPad Landscape */
+            grid-template-columns: 80px repeat(12, 65px); /* Fixed pixel widths */
+            grid-template-rows: 60px 60px 60px 50px; /* Fixed pixel heights */
+            gap: 4px; min-width: 880px;
         }
 
         .cell { 
             display: flex; align-items: center; justify-content: center; 
-            font-weight: bold; cursor: pointer; border: 1px solid rgba(255,255,255,0.3); font-size: 1.3rem;
-            min-height: var(--cell-h);
+            font-weight: bold; cursor: pointer; border: 1px solid rgba(255,255,255,0.4); 
+            font-size: 1.4rem; border-radius: 4px;
         }
 
-        .zero { grid-row: 1 / span 3; background: var(--green); border: 2px solid white; }
+        .zero { grid-row: 1 / span 3; background: var(--green); border: 3px solid white; }
         .r { background: var(--red); }
         .b { background: var(--black); }
 
+        /* Chips */
         .physical-chip {
-            width: 42px; height: 42px; border-radius: 50%;
+            width: 44px; height: 44px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.8rem; font-weight: 900; color: white;
+            font-size: 0.9rem; font-weight: 900; color: white;
             border: 3px dashed rgba(255,255,255,0.8);
-            text-shadow: 1px 1px 2px #000; box-shadow: 0 4px 0 #222;
-            justify-self: center; align-self: center;
+            background: #2980b9; justify-self: center; align-self: center;
         }
-        .chip-low { background: #c0392b; } 
-        .chip-high { background: #2980b9; } 
+        .chip-low { background: #c0392b; }
 
-        .panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-top: 15px; }
-        .log { height: 180px; overflow-y: auto; background: #1a1a1a; padding: 12px; font-family: monospace; border-radius: 4px; font-size: 1rem; border: 1px solid #444; }
-        .hidden { display: none !important; }
-        textarea { width: 100%; height: 100px; background: #1a1a1a; color: #00ff00; border: 1px solid #555; padding: 10px; margin-top: 10px; box-sizing: border-box; font-size: 1.1rem; }
+        .log { height: 150px; overflow-y: auto; background: #1a1a1a; padding: 10px; border-radius: 4px; font-family: monospace; }
+        .btn { padding: 15px; border: none; border-radius: 4px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
-        <div class="input-group"><label>Bankroll</label><input type="number" id="inBank" value="1000"></div>
-        <div class="input-group"><label>Unit Size</label><input type="number" id="inUnit" value="5"></div>
-        <div class="input-group">
-            <label>Mode</label>
-            <select id="mode" onchange="toggleMode()">
-                <option value="manual">Manual Entry</option>
-                <option value="sim">Simulation</option>
-            </select>
-        </div>
-        <div class="action-btns">
-            <button class="btn btn-start" onclick="startSession()">Start Session</button>
-            <button class="btn btn-undo" onclick="undo()">Undo</button>
-            <button class="btn btn-reset" onclick="resetAll()">Reset</button>
-        </div>
-    </div>
-
     <div class="stats">
-        <div class="stat-card">Bankroll<div id="dispBank">1000</div></div>
-        <div class="stat-card">Profit/Loss<div id="dispProfit">0</div></div>
-        <div class="stat-card">Units (L|H)<div id="dispUnits">1 | 1</div></div>
+        <div class="stat-card">Bank<div id="dispBank">1000</div></div>
+        <div class="stat-card">P/L<div id="dispProfit">0</div></div>
+        <div class="stat-card">L|H<div id="dispUnits">1 | 1</div></div>
         <div class="stat-card">Peak<div id="dispPeak">1000</div></div>
     </div>
 
-    <div id="simUI" class="panel hidden">
-        <label>Paste Numbers:</label>
-        <textarea id="bulk" placeholder="e.g. 32, 15, 19, 4..."></textarea>
-        <button onclick="runSim()" style="width:100%; margin-top:10px; background: #4caf50; color:white; border:none; padding:18px; border-radius:4px; font-weight:bold; font-size: 1.1rem;">RUN BULK SIMULATION</button>
-    </div>
-
-    <div id="manualUI" class="table-scroll-container">
+    <div class="table-scroll-container">
         <div class="roulette-grid" id="grid">
-            <div class="cell zero" onclick="press(0)" id="cell-0">0</div>
-            </div>
+            <div class="cell zero" onclick="press(0)">0</div>
+            <div class="cell r" onclick="press(3)">3</div>
+            <div class="cell b" onclick="press(6)">6</div>
+            <div class="cell r" onclick="press(9)">9</div>
+            <div class="cell r" onclick="press(12)">12</div>
+            <div class="cell b" onclick="press(15)">15</div>
+            <div class="cell r" onclick="press(18)">18</div>
+            <div class="cell r" onclick="press(21)">21</div>
+            <div class="cell b" onclick="press(24)">24</div>
+            <div class="cell r" onclick="press(27)">27</div>
+            <div class="cell r" onclick="press(30)">30</div>
+            <div class="cell b" onclick="press(33)">33</div>
+            <div class="cell r" onclick="press(36)">36</div>
+
+            <div class="cell b" onclick="press(2)" style="grid-column: 2">2</div>
+            <div class="cell r" onclick="press(5)">5</div>
+            <div class="cell b" onclick="press(8)">8</div>
+            <div class="cell b" onclick="press(11)">11</div>
+            <div class="cell r" onclick="press(14)">14</div>
+            <div class="cell b" onclick="press(17)">17</div>
+            <div class="cell b" onclick="press(20)">20</div>
+            <div class="cell r" onclick="press(23)">23</div>
+            <div class="cell b" onclick="press(26)">26</div>
+            <div class="cell b" onclick="press(29)">29</div>
+            <div class="cell r" onclick="press(32)">32</div>
+            <div class="cell b" onclick="press(35)">35</div>
+
+            <div class="cell r" onclick="press(1)" style="grid-column: 2">1</div>
+            <div class="cell b" onclick="press(4)">4</div>
+            <div class="cell r" onclick="press(7)">7</div>
+            <div class="cell b" onclick="press(10)">10</div>
+            <div class="cell b" onclick="press(13)">13</div>
+            <div class="cell r" onclick="press(16)">16</div>
+            <div class="cell r" onclick="press(19)">19</div>
+            <div class="cell b" onclick="press(22)">22</div>
+            <div class="cell r" onclick="press(25)">25</div>
+            <div class="cell b" onclick="press(28)">28</div>
+            <div class="cell b" onclick="press(31)">31</div>
+            <div class="cell r" onclick="press(34)">34</div>
+        </div>
     </div>
 
-    <div id="dashboard" style="display:none;">
-        <div id="advice" style="text-align:center; font-weight:bold; padding:15px; background:#444; border-radius:5px; font-size: 1.1rem; margin-bottom: 10px;">
-            Enter 18 numbers to generate prediction.
-        </div>
-        <div id="log" class="log"></div>
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <button class="btn" style="background:var(--gold); flex:2" onclick="startSession()">Start Session</button>
+        <button class="btn" style="background:#7f8c8d; flex:1" onclick="location.reload()">Reset</button>
     </div>
+
+    <div id="advice" style="background:#444; padding:15px; text-align:center; border-radius:5px; font-weight:bold;">
+        Press Start Session to Begin
+    </div>
+
+    <div id="log" class="log" style="margin-top:10px;"></div>
 </div>
 
 <script>
-    let bank, startBank, peak, history = [], stateStack = [], base, active = false;
-    let unitLow = 1, unitHigh = 1;
-    let currentPrediction = null;
-    const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
-
-    // Build Table Numbers
-    const grid = document.getElementById('grid');
-    for (let i = 1; i <= 36; i++) {
-        let col = Math.ceil(i / 3);
-        let row = (i % 3 === 0) ? 1 : (i % 3 === 1 ? 3 : 2);
-        let d = document.createElement('div');
-        d.className = `cell ${reds.includes(i) ? 'r' : 'b'}`;
-        d.id = `cell-${i}`; 
-        d.innerText = i;
-        d.style.gridColumn = col + 1; 
-        d.style.gridRow = row;
-        d.onclick = () => press(i);
-        grid.appendChild(d);
-    }
-
-    function toggleMode() {
-        const m = document.getElementById('mode').value;
-        document.getElementById('manualUI').classList.toggle('hidden', m !== 'manual');
-        document.getElementById('simUI').classList.toggle('hidden', m !== 'sim');
-    }
-
-    function saveState() {
-        stateStack.push(JSON.stringify({bank, peak, history: [...history], unitLow, unitHigh, currentPrediction}));
-        if(stateStack.length > 50) stateStack.shift();
-    }
-
-    function undo() {
-        if(stateStack.length === 0) return;
-        const s = JSON.parse(stateStack.pop());
-        bank = s.bank; peak = s.peak; history = s.history; unitLow = s.unitLow; 
-        unitHigh = s.unitHigh; currentPrediction = s.currentPrediction;
-        updateUI();
-    }
-
-    function resetAll() { if(confirm("Reset everything?")) location.reload(); }
+    let bank=1000, startBank=1000, peak=1000, history=[], base=5, active=false;
+    let unitLow=1, unitHigh=1, currentPrediction=null;
+    const reds=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
     function startSession() {
-        startBank = parseFloat(document.getElementById('inBank').value) || 1000;
-        bank = startBank;
-        base = parseFloat(document.getElementById('inUnit').value) || 5;
-        peak = bank; history = []; unitLow = 1; unitHigh = 1; active = true; 
-        currentPrediction = null; stateStack = [];
-        document.getElementById('dashboard').style.display = 'block';
-        document.getElementById('log').innerHTML = "";
+        active = true;
+        document.getElementById('advice').innerText = "Enter 18 spins for prediction";
         updateUI();
     }
 
     function press(n) {
         if(!active) return;
-        saveState();
-        
         if(currentPrediction) {
             bank -= (base * unitLow * 2) + (base * unitHigh * 2);
             let ds = Math.ceil(n / 6);
-
-            // Low Side
             if(n > 0 && n <= 18) {
-                if(currentPrediction.lowSide.includes(ds)) {
-                    bank += (base * unitLow * 6);
-                    unitLow = Math.max(1, unitLow - 2);
-                } else { unitLow += 1; }
+                if(currentPrediction.lowSide.includes(ds)) { bank += (base * unitLow * 6); unitLow = Math.max(1, unitLow - 2); }
+                else { unitLow += 1; }
             } else { unitLow += 1; }
-
-            // High Side
             if(n >= 19) {
-                if(currentPrediction.highSide.includes(ds)) {
-                    bank += (base * unitHigh * 6);
-                    unitHigh = Math.max(1, unitHigh - 2);
-                } else { unitHigh += 1; }
+                if(currentPrediction.highSide.includes(ds)) { bank += (base * unitHigh * 6); unitHigh = Math.max(1, unitHigh - 2); }
+                else { unitHigh += 1; }
             } else { unitHigh += 1; }
         }
-        
         history.push(n);
         currentPrediction = history.length >= 18 ? generatePrediction() : null;
         updateUI(n);
@@ -223,47 +170,32 @@
     function updateUI(n) {
         document.getElementById('dispBank').innerText = Math.floor(bank);
         document.getElementById('dispProfit').innerText = Math.floor(bank - startBank);
-        document.getElementById('dispUnits').innerText = `${unitLow} | ${unitHigh}`;
+        document.getElementById('dispUnits').innerText = `${unitLow}|${unitHigh}`;
         if(bank > peak) peak = bank;
         document.getElementById('dispPeak').innerText = Math.floor(peak);
-
         document.querySelectorAll('.physical-chip').forEach(c => c.remove());
 
         if(currentPrediction) {
-            const placeChip = (ds, val, type) => {
-                const targetCol = ((ds - 1) * 2) + 2; 
+            const grid = document.getElementById('grid');
+            const place = (ds, val, type) => {
                 const chip = document.createElement('div');
-                chip.className = `physical-chip ${type === 'low' ? 'chip-low' : 'chip-high'}`;
+                chip.className = `physical-chip ${type === 'low' ? 'chip-low' : ''}`;
                 chip.innerText = base * val;
-                chip.style.gridColumn = `${targetCol} / span 2`;
+                chip.style.gridColumn = `${((ds-1)*2)+2} / span 2`;
                 chip.style.gridRow = "4";
                 grid.appendChild(chip);
             };
-            currentPrediction.lowSide.forEach(ds => placeChip(ds, unitLow, 'low'));
-            currentPrediction.highSide.forEach(ds => placeChip(ds, unitHigh, 'high'));
-            document.getElementById('advice').innerText = "BETS PLACED (DOUBLE STREETS)";
+            currentPrediction.lowSide.forEach(ds => place(ds, unitLow, 'low'));
+            currentPrediction.highSide.forEach(ds => place(ds, unitHigh, 'high'));
+            document.getElementById('advice').innerText = "BETS PLACED";
             document.getElementById('advice').style.background = "var(--blue)";
-        } else {
-            document.getElementById('advice').innerText = `Need ${18 - history.length} more spins...`;
-            document.getElementById('advice').style.background = "#444";
         }
 
-        if(n !== undefined && n !== null) {
-            const color = n === 0 ? '#4caf50' : (reds.includes(n) ? '#ff4444' : '#fff');
-            const logEntry = document.createElement('div');
-            logEntry.style.padding = "5px 0";
-            logEntry.innerHTML = `Spin ${history.length}: <b style="color:${color}">${n}</b> | Bank: ${Math.floor(bank)}`;
-            const log = document.getElementById('log');
-            log.prepend(logEntry);
+        if(n !== undefined) {
+            const entry = document.createElement('div');
+            entry.innerHTML = `Spin ${history.length}: <b>${n}</b> | Bank: ${Math.floor(bank)}`;
+            document.getElementById('log').prepend(entry);
         }
-    }
-
-    function runSim() {
-        const raw = document.getElementById('bulk').value;
-        const data = raw.split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 36);
-        if(data.length === 0) return alert("Enter valid numbers");
-        startSession();
-        data.forEach(n => press(n));
     }
 </script>
 </body>
